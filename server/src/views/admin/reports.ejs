@@ -1,0 +1,55 @@
+<%- include('../partials/layout') %>
+
+<h3 class="mb-4">Raporlar</h3>
+
+<% if (reports.length === 0) { %>
+  <div class="alert alert-info">Henüz rapor bulunmuyor.</div>
+<% } else { %>
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Raporlayan</th>
+        <th>Raporlanan</th>
+        <th>Sebep</th>
+        <th>Durum</th>
+        <th>Tarih</th>
+        <th>İşlem</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% reports.forEach(function(report) { %>
+      <tr>
+        <td><%= report.id %></td>
+        <td><%= report.reporter_username %></td>
+        <td><%= report.reported_username %></td>
+        <td><%= report.reason %></td>
+        <td>
+          <% if (report.status === 'pending') { %>
+            <span class="badge bg-warning text-dark">Beklemede</span>
+          <% } else if (report.status === 'resolved') { %>
+            <span class="badge bg-success">Çözüldü</span>
+          <% } else { %>
+            <span class="badge bg-info"><%= report.status %></span>
+          <% } %>
+        </td>
+        <td><%= new Date(report.created_at).toLocaleDateString('tr-TR') %></td>
+        <td>
+          <% if (report.status === 'pending') { %>
+          <form method="POST" action="/admin/reports/<%= report.id %>/resolve" class="d-inline">
+            <input type="text" name="admin_note" class="form-control form-control-sm d-inline-block" style="width:150px" placeholder="Not...">
+            <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check"></i></button>
+          </form>
+          <% } else { %>
+            <small class="text-muted"><%= report.admin_note || '' %></small>
+          <% } %>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%- include('../partials/footer') %>

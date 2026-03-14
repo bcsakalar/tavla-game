@@ -1,0 +1,76 @@
+<%- include('../partials/layout') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h3>Kullanıcılar</h3>
+  <form class="d-flex" method="GET" action="/admin/users">
+    <input type="text" class="form-control me-2" name="search" placeholder="Ara..." value="<%= search %>">
+    <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+  </form>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Kullanıcı Adı</th>
+        <th>Email</th>
+        <th>ELO</th>
+        <th>Oyun</th>
+        <th>Galibiyet</th>
+        <th>Durum</th>
+        <th>Kayıt</th>
+        <th>İşlem</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% users.forEach(function(user) { %>
+      <tr>
+        <td><%= user.id %></td>
+        <td><strong><%= user.username %></strong></td>
+        <td><%= user.email %></td>
+        <td><%= user.elo_rating %></td>
+        <td><%= user.total_wins + user.total_losses + user.total_draws %></td>
+        <td><%= user.total_wins %></td>
+        <td>
+          <% if (user.is_banned) { %>
+            <span class="badge bg-danger">Engelli</span>
+          <% } else if (user.is_online) { %>
+            <span class="badge bg-success">Çevrimiçi</span>
+          <% } else { %>
+            <span class="badge bg-secondary">Çevrimdışı</span>
+          <% } %>
+          <% if (user.role === 'admin') { %>
+            <span class="badge bg-warning text-dark">Admin</span>
+          <% } %>
+        </td>
+        <td><%= new Date(user.created_at).toLocaleDateString('tr-TR') %></td>
+        <td>
+          <% if (user.role !== 'admin') { %>
+          <form method="POST" action="/admin/users/<%= user.id %>/ban" style="display:inline"
+            onsubmit="return confirm(this.dataset.msg)" data-msg="<%= user.is_banned ? 'Engeli kaldır?' : 'Kullanıcıyı engelle?' %>">
+            <button type="submit" class="btn btn-sm <%= user.is_banned ? 'btn-success' : 'btn-danger' %>">
+              <i class="bi <%= user.is_banned ? 'bi-unlock' : 'bi-lock' %>"></i>
+            </button>
+          </form>
+          <% } %>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+<nav>
+  <ul class="pagination justify-content-center">
+    <% for (let i = 1; i <= totalPages; i++) { %>
+    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+      <a class="page-link" href="/admin/users?page=<%= i %>&search=<%= search %>"><%= i %></a>
+    </li>
+    <% } %>
+  </ul>
+</nav>
+<% } %>
+
+<%- include('../partials/footer') %>

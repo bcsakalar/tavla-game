@@ -1,0 +1,38 @@
+<%- include('../partials/layout') %>
+
+<h3 class="mb-4">Dashboard</h3>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4 col-lg">
+    <div class="stat-card">
+      <div class="stat-number"><%= stats.totalUsers || 0 %></div>
+      <div class="stat-label"><i class="bi bi-people"></i> Toplam Kullanıcı</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg">
+    <div class="stat-card">
+      <div class="stat-number"><%= stats.onlineUsers || 0 %></div>
+      <div class="stat-label"><i class="bi bi-circle-fill text-success"></i> Çevrimiçi</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg">
+    <div class="stat-card">
+      <div class="stat-number"><%= stats.totalGames || 0 %></div>
+      <div class="stat-label"><i class="bi bi-controller"></i> Toplam Oyun</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg">
+    <div class="stat-card">
+      <div class="stat-number"><%= stats.todayGames || 0 %></div>
+      <div class="stat-label"><i class="bi bi-calendar-day"></i> Bugünkü Oyun</div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg">
+    <div class="stat-card">
+      <div class="stat-number"><%= stats.todayNewUsers || 0 %></div>
+      <div class="stat-label"><i class="bi bi-person-plus"></i> Yeni Kullanıcı</div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

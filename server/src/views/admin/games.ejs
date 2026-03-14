@@ -1,0 +1,59 @@
+<%- include('../partials/layout') %>
+
+<h3 class="mb-4">Oyunlar</h3>
+
+<div class="table-responsive">
+  <table class="table table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Beyaz</th>
+        <th>Siyah</th>
+        <th>Kazanan</th>
+        <th>Durum</th>
+        <th>Sonuç</th>
+        <th>Hamle</th>
+        <th>Tarih</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% games.forEach(function(game) { %>
+      <tr>
+        <td><%= game.id %></td>
+        <td><%= game.white_username || '-' %></td>
+        <td><%= game.black_username || '-' %></td>
+        <td><strong><%= game.winner_username || '-' %></strong></td>
+        <td>
+          <% if (game.status === 'playing') { %>
+            <span class="badge bg-primary">Devam Ediyor</span>
+          <% } else if (game.status === 'finished') { %>
+            <span class="badge bg-success">Bitti</span>
+          <% } else { %>
+            <span class="badge bg-secondary"><%= game.status %></span>
+          <% } %>
+        </td>
+        <td>
+          <% const labels = { normal: 'Normal', gammon: 'Mars', backgammon: 'Üç Mars', resign: 'Teslim', timeout: 'Süre Aşımı', disconnect: 'Kopma' }; %>
+          <%= labels[game.result_type] || game.result_type || '-' %>
+        </td>
+        <td><%= game.total_moves || 0 %></td>
+        <td><%= new Date(game.created_at).toLocaleDateString('tr-TR') %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+<nav>
+  <ul class="pagination justify-content-center">
+    <% for (let i = 1; i <= totalPages; i++) { %>
+    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+      <a class="page-link" href="/admin/games?page=<%= i %>"><%= i %></a>
+    </li>
+    <% } %>
+  </ul>
+</nav>
+<% } %>
+
+<%- include('../partials/footer') %>
