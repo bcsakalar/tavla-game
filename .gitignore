@@ -88,9 +88,10 @@ server/coverage/
 lcov.info
 
 # ========================
-# Deployment (sadece .env gizli kalmalı)
+# Deployment (public repo'ya gitmemeli)
 # ========================
-deploy/.env
+SERVER.md
+deploy/
 
 # ========================
 # Agent / Copilot Memory
