@@ -22,6 +22,9 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
+// Trust proxy (Nginx / Cloudflare arkasında)
+app.set('trust proxy', 1);
+
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
