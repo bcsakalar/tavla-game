@@ -1,8 +1,8 @@
 name: Deploy
 
+# Manuel deploy yapıldığı için otomatik tetiklenme kapalı
+# Gerekirse GitHub Actions > Deploy > Run workflow ile manuel çalıştırılabilir
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 env:

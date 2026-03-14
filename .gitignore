@@ -88,6 +88,12 @@ server/coverage/
 lcov.info
 
 # ========================
+# Deployment (sensitive — public repo'ya gitmemeli)
+# ========================
+SERVER.md
+deploy/
+
+# ========================
 # Agent / Copilot Memory
 # ========================
 .agents/
