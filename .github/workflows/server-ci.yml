@@ -60,7 +60,7 @@ jobs:
 
       - name: Run migrations
         working-directory: server
-        run: npm run migrate
+        run: npm run db:migrate
 
       - name: Run tests
         working-directory: server
