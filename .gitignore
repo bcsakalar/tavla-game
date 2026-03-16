@@ -54,6 +54,16 @@ Thumbs.db
 desktop.ini
 
 # ========================
+# AI Agent Infrastructure
+# ========================
+knowledge/
+.agents/
+.github/
+AGENTS.md
+MEMORY.md
+.cursorrules
+
+# ========================
 # Docker
 # ========================
 docker/pgdata/
