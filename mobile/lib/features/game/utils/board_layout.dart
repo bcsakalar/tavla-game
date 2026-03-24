@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-const double kBoardAspectRatio = 1.44;
+const double kBoardAspectRatio = 1.1;
 
 Size computeBoardViewport(
   Size available, {

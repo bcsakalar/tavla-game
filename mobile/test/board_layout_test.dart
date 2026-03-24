@@ -8,14 +8,14 @@ void main() {
     final viewport = computeBoardViewport(const Size(382, 620));
 
     expect(viewport.width, closeTo(382, 0.01));
-    expect(viewport.height, closeTo(265.28, 0.01));
+    expect(viewport.height, closeTo(347.27, 0.01));
     expect(viewport.width / viewport.height, closeTo(kBoardAspectRatio, 0.001));
   });
 
   test('should cap board width when height becomes the limiting dimension', () {
     final viewport = computeBoardViewport(const Size(900, 320));
 
-    expect(viewport.width, closeTo(460.8, 0.01));
+    expect(viewport.width, closeTo(352.0, 0.01));
     expect(viewport.height, closeTo(320, 0.01));
     expect(viewport.width / viewport.height, closeTo(kBoardAspectRatio, 0.001));
   });
@@ -24,7 +24,7 @@ void main() {
     final viewport = computeBoardViewport(const Size(390, 720));
 
     expect(viewport.width, closeTo(390, 0.01));
-    expect(viewport.height, greaterThan(270));
+    expect(viewport.height, greaterThan(350));
     expect(viewport.width / viewport.height, closeTo(kBoardAspectRatio, 0.001));
   });
 }

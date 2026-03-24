@@ -417,11 +417,11 @@ class BoardWidget extends StatelessWidget {
             builder: (context, constraints) {
               final pieceSize = math.min(
                 constraints.maxWidth * 0.82,
-                constraints.maxHeight * 0.26,
-              ).clamp(16.0, 30.0).toDouble();
+                constraints.maxHeight * 0.19,
+              ).clamp(16.0, 32.0).toDouble();
               final stackGap = (pieceSize * 0.055).clamp(0.7, 1.4).toDouble();
               final maxPiecesVisible =
-                  (constraints.maxHeight / (pieceSize * 0.72)).floor().clamp(1, 6);
+                  (constraints.maxHeight / (pieceSize * 0.72)).floor().clamp(1, 7);
               final piecesToShow = point.count > maxPiecesVisible ? maxPiecesVisible : point.count;
 
               return Stack(
@@ -708,12 +708,12 @@ class BoardWidget extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(
-                    topBarCount.clamp(0, 4),
+                    topBarCount.clamp(0, 5),
                     (i) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 0.8),
                       child: PieceWidget(
                         player: topBarPlayer,
-                        count: (i == topBarCount.clamp(0, 4) - 1 && topBarCount > 4)
+                        count: (i == topBarCount.clamp(0, 5) - 1 && topBarCount > 5)
                             ? topBarCount
                             : 1,
                         size: pieceSize,
@@ -758,12 +758,12 @@ class BoardWidget extends StatelessWidget {
     final stack = Column(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(
-        bottomBarCount.clamp(0, 4),
+        bottomBarCount.clamp(0, 5),
         (i) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 0.8),
           child: PieceWidget(
             player: player,
-            count: (i == bottomBarCount.clamp(0, 4) - 1 && bottomBarCount > 4)
+            count: (i == bottomBarCount.clamp(0, 5) - 1 && bottomBarCount > 5)
                 ? bottomBarCount
                 : 1,
             size: pieceSize,

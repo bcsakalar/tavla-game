@@ -425,16 +425,16 @@ class _GameScreenState extends ConsumerState<GameScreen>
 
   double _boardVerticalInset(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height;
-    if (height < 720) return 6;
-    if (height < 860) return 8;
-    return 10;
+    if (height < 720) return 3;
+    if (height < 860) return 4;
+    return 5;
   }
 
   double _playerBarOuterGap(BuildContext context, bool isTop) {
     final height = MediaQuery.sizeOf(context).height;
-    if (height < 720) return isTop ? 4 : 2;
-    if (height < 860) return isTop ? 6 : 4;
-    return isTop ? 8 : 5;
+    if (height < 720) return isTop ? 2 : 1;
+    if (height < 860) return isTop ? 3 : 2;
+    return isTop ? 4 : 3;
   }
 
   Widget _buildActionBar(BuildContext context, GamePlayState game) {
