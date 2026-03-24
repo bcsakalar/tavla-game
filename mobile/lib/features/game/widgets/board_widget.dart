@@ -14,6 +14,10 @@ class BoardWidget extends StatelessWidget {
   final int? selectedPoint;
   final bool isMyTurn;
   final void Function(int pointIndex) onPointTap;
+  final void Function(int fromPoint)? onPointDragStart;
+  final void Function(int fromPoint, int toPoint)? onPointDrop;
+  final void Function(int toPoint)? onBarDrop;
+  final void Function(int fromPoint)? onBearOffDrop;
   final VoidCallback? onBarTap;
   final VoidCallback? onBearOffTap;
   final VoidCallback? onDiceTap;
@@ -32,6 +36,10 @@ class BoardWidget extends StatelessWidget {
     this.selectedPoint,
     this.isMyTurn = false,
     required this.onPointTap,
+    this.onPointDragStart,
+    this.onPointDrop,
+    this.onBarDrop,
+    this.onBearOffDrop,
     this.onBarTap,
     this.onBearOffTap,
     this.onDiceTap,
@@ -117,12 +125,21 @@ class BoardWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(outerRadius * 0.42),
                   child: Row(
                     children: [
-                      BearingOffTrayWidget(
+                      BearingOffTrayWidget<_DragPayload>(
+                        key: ValueKey('bearing-off-tray-${isWhite ? opponentColor : myColor}'),
                         player: isWhite ? opponentColor : myColor,
                         count: isWhite ? opponentBorneOff : myBorneOff,
                         width: trayWidth,
                         isActive: !isWhite && canBearOff,
                         isValidTarget: !isWhite && isBearOffTarget,
+                        onWillAccept: (data) =>
+                            !data.fromBar && !isWhite && isBearOffTarget && onBearOffDrop != null,
+                        onAccept: (data) {
+                          final fromPoint = data.fromPoint;
+                          if (fromPoint != null) {
+                            onBearOffDrop?.call(fromPoint);
+                          }
+                        },
                         onTap: !isWhite && isBearOffTarget ? onBearOffTap : null,
                       ),
                       Expanded(
@@ -140,12 +157,21 @@ class BoardWidget extends StatelessWidget {
                           isWhite: isWhite,
                         ),
                       ),
-                      BearingOffTrayWidget(
+                      BearingOffTrayWidget<_DragPayload>(
+                        key: ValueKey('bearing-off-tray-${isWhite ? myColor : opponentColor}'),
                         player: isWhite ? myColor : opponentColor,
                         count: isWhite ? myBorneOff : opponentBorneOff,
                         width: trayWidth,
                         isActive: isWhite && canBearOff,
                         isValidTarget: isWhite && isBearOffTarget,
+                        onWillAccept: (data) =>
+                            !data.fromBar && isWhite && isBearOffTarget && onBearOffDrop != null,
+                        onAccept: (data) {
+                          final fromPoint = data.fromPoint;
+                          if (fromPoint != null) {
+                            onBearOffDrop?.call(fromPoint);
+                          }
+                        },
                         onTap: isWhite && isBearOffTarget ? onBearOffTap : null,
                       ),
                     ],
@@ -301,123 +327,200 @@ class BoardWidget extends StatelessWidget {
     final isValidTarget = validMoveTargets.contains(pointIndex);
     final isBotHighlight = highlightedPoints.contains(pointIndex);
     final isEven = pointIndex % 2 == 0;
+    final canDragPoint =
+        isMyTurn && point.count > 0 && point.player == myColor && onPointDrop != null;
 
     final triangleColor1 = isEven ? TavlaTheme.pointRed : TavlaTheme.pointCream;
     final triangleColor2 = isEven ? TavlaTheme.pointRedLight : TavlaTheme.pointCreamDark;
 
-    return GestureDetector(
-      onTap: isMyTurn ? () => onPointTap(pointIndex) : null,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final pieceSize = constraints.maxWidth * 0.85;
-          final maxPiecesVisible = (constraints.maxHeight / (pieceSize * 0.82)).floor().clamp(1, 5);
-          final piecesToShow = point.count > maxPiecesVisible ? maxPiecesVisible : point.count;
+    return DragTarget<_DragPayload>(
+      onWillAcceptWithDetails: (details) {
+        final data = details.data;
+        if (!isValidTarget) return false;
+        if (data.fromBar) {
+          return onBarDrop != null;
+        }
+        return onPointDrop != null && data.fromPoint != pointIndex;
+      },
+      onAcceptWithDetails: (details) {
+        final data = details.data;
+        if (data.fromBar) {
+          onBarDrop?.call(pointIndex);
+          return;
+        }
+        final fromPoint = data.fromPoint;
+        if (fromPoint != null && fromPoint != pointIndex) {
+          onPointDrop?.call(fromPoint, pointIndex);
+        }
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty && isValidTarget;
 
-          return Stack(
-            children: [
-              // Triangle background
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _TrianglePainter(
-                    color1: triangleColor1,
-                    color2: triangleColor2,
-                    isTop: isTop,
-                  ),
-                ),
-              ),
+        return GestureDetector(
+          key: ValueKey('board-point-$pointIndex'),
+          onTap: isMyTurn ? () => onPointTap(pointIndex) : null,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final pieceSize = constraints.maxWidth * 0.85;
+              final maxPiecesVisible = (constraints.maxHeight / (pieceSize * 0.82)).floor().clamp(1, 5);
+              final piecesToShow = point.count > maxPiecesVisible ? maxPiecesVisible : point.count;
 
-              // Selected border (gold outline)
-              if (isSelected)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: TavlaTheme.gold, width: 2),
-                    ),
-                  ),
-                ),
-
-              // Bot move glow border (enhanced with double glow)
-              if (isBotHighlight)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: TavlaTheme.gold.withValues(alpha: 0.85),
-                        width: 2.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: TavlaTheme.gold.withValues(alpha: 0.5),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: TavlaTheme.gold.withValues(alpha: 0.25),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Pieces stacked on the triangle
-              if (point.count > 0)
-                Positioned(
-                  top: isTop ? 0 : null,
-                  bottom: isTop ? null : 0,
-                  left: 0,
-                  right: 0,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(
-                      piecesToShow,
-                      (i) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 0.5),
-                        child: PieceWidget(
-                          player: point.player ?? 'W',
-                          count: (i == piecesToShow - 1 && point.count > maxPiecesVisible)
-                              ? point.count
-                              : 1,
-                          size: pieceSize,
-                          isSelected: isSelected && i == 0,
-                        ),
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _TrianglePainter(
+                        color1: triangleColor1,
+                        color2: triangleColor2,
+                        isTop: isTop,
                       ),
                     ),
                   ),
-                ),
-
-              // --- HINT INDICATORS (circle style) ---
-
-              // Valid move target with pieces: ring around bottom/top piece
-              if (isValidTarget && point.count > 0)
-                Positioned(
-                  top: isTop ? 0 : null,
-                  bottom: isTop ? null : 0,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: _buildMoveHintCircle(
-                      pieceSize,
-                      point.player != null && point.player != myColor,
+                  if (isSelected)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: TavlaTheme.gold, width: 2),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  if (isBotHighlight)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: TavlaTheme.gold.withValues(alpha: 0.85),
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: TavlaTheme.gold.withValues(alpha: 0.5),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                            BoxShadow(
+                              color: TavlaTheme.gold.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (isHovering)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: TavlaTheme.success.withValues(alpha: 0.12),
+                          border: Border.all(
+                            color: TavlaTheme.success.withValues(alpha: 0.75),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (point.count > 0)
+                    Positioned(
+                      top: isTop ? 0 : null,
+                      bottom: isTop ? null : 0,
+                      left: 0,
+                      right: 0,
+                      child: _buildDraggablePointStack(
+                        pointIndex: pointIndex,
+                        player: point.player ?? 'W',
+                        pointCount: point.count,
+                        pieceSize: pieceSize,
+                        piecesToShow: piecesToShow,
+                        maxPiecesVisible: maxPiecesVisible,
+                        isSelected: isSelected,
+                        canDrag: canDragPoint,
+                      ),
+                    ),
+                  if (isValidTarget && point.count > 0)
+                    Positioned(
+                      top: isTop ? 0 : null,
+                      bottom: isTop ? null : 0,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _buildMoveHintCircle(
+                          pieceSize,
+                          point.player != null && point.player != myColor,
+                        ),
+                      ),
+                    ),
+                  if (isValidTarget && point.count == 0)
+                    Positioned(
+                      top: isTop ? constraints.maxHeight * 0.35 : null,
+                      bottom: isTop ? null : constraints.maxHeight * 0.35,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _buildMoveHintDot(false),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
-              // Valid move target on empty point: small circle at tip
-              if (isValidTarget && point.count == 0)
-                Positioned(
-                  top: isTop ? constraints.maxHeight * 0.35 : null,
-                  bottom: isTop ? null : constraints.maxHeight * 0.35,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: _buildMoveHintDot(false),
-                  ),
-                ),
-            ],
-          );
-        },
+  Widget _buildDraggablePointStack({
+    required int pointIndex,
+    required String player,
+    required int pointCount,
+    required double pieceSize,
+    required int piecesToShow,
+    required int maxPiecesVisible,
+    required bool isSelected,
+    required bool canDrag,
+  }) {
+    final stack = KeyedSubtree(
+      key: ValueKey('point-stack-$pointIndex'),
+      child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        piecesToShow,
+        (i) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 0.5),
+          child: PieceWidget(
+            player: player,
+            count: (i == piecesToShow - 1 && pointCount > maxPiecesVisible)
+                ? pointCount
+                : 1,
+            size: pieceSize,
+            isSelected: isSelected && i == 0,
+          ),
+        ),
       ),
+      ),
+    );
+
+    if (!canDrag) {
+      return stack;
+    }
+
+    return Draggable<_DragPayload>(
+      data: _DragPayload.fromPoint(pointIndex),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      onDragStarted: () {
+        onPointDragStart?.call(pointIndex);
+      },
+      feedback: Material(
+        color: Colors.transparent,
+        child: PieceWidget(
+          player: player,
+          size: pieceSize * 1.06,
+          isSelected: true,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.32,
+        child: stack,
+      ),
+      child: stack,
     );
   }
 
@@ -487,6 +590,7 @@ class BoardWidget extends StatelessWidget {
 
     final hasDice = dice != null && dice!.isNotEmpty;
     final isRolling = turnPhase == 'rolling' && isMyTurn;
+    final canDragFromBar = isMyTurn && bottomBarPlayer == myColor && bottomBarCount > 0 && onBarDrop != null;
 
     return GestureDetector(
       onTap: onBarTap,
@@ -559,26 +663,62 @@ class BoardWidget extends StatelessWidget {
             if (bottomBarCount > 0)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(
-                    bottomBarCount.clamp(0, 3),
-                    (i) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 1),
-                      child: PieceWidget(
-                        player: bottomBarPlayer,
-                        count: (i == bottomBarCount.clamp(0, 3) - 1 && bottomBarCount > 3)
-                            ? bottomBarCount
-                            : 1,
-                        size: pieceSize,
-                      ),
-                    ),
-                  ),
+                child: _buildBottomBarStack(
+                  player: bottomBarPlayer,
+                  pieceSize: pieceSize,
+                  bottomBarCount: bottomBarCount,
+                  canDragFromBar: canDragFromBar,
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBottomBarStack({
+    required String player,
+    required double pieceSize,
+    required int bottomBarCount,
+    required bool canDragFromBar,
+  }) {
+    final stack = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        bottomBarCount.clamp(0, 3),
+        (i) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: PieceWidget(
+            player: player,
+            count: (i == bottomBarCount.clamp(0, 3) - 1 && bottomBarCount > 3)
+                ? bottomBarCount
+                : 1,
+            size: pieceSize,
+          ),
+        ),
+      ),
+    );
+
+    if (!canDragFromBar) {
+      return stack;
+    }
+
+    return Draggable<_DragPayload>(
+      data: const _DragPayload.fromBar(),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Material(
+        color: Colors.transparent,
+        child: PieceWidget(
+          player: player,
+          size: pieceSize * 1.06,
+          isSelected: true,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.28,
+        child: stack,
+      ),
+      child: stack,
     );
   }
 
@@ -675,6 +815,19 @@ class BoardWidget extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DragPayload {
+  final int? fromPoint;
+  final bool fromBar;
+
+  const _DragPayload._({this.fromPoint, required this.fromBar});
+
+  const _DragPayload.fromPoint(int pointIndex)
+    : this._(fromPoint: pointIndex, fromBar: false);
+
+  const _DragPayload.fromBar()
+    : this._(fromPoint: null, fromBar: true);
 }
 
 class _TrianglePainter extends CustomPainter {

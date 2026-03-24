@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/game_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../utils/board_layout.dart';
 import '../widgets/board_widget.dart';
 import '../widgets/timer_widget.dart';
 import '../widgets/player_profile_popup.dart';
@@ -95,53 +98,83 @@ class _GameScreenState extends ConsumerState<GameScreen>
 
             // Board (with integrated dice in center bar and bearing-off trays)
             Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: _boardHorizontalPadding(context)),
-                child: BoardWidget(
-                  board: game.snapshot!.board,
-                  myColor: game.myColor ?? 'W',
-                  selectedPoint: game.selectedPoint,
-                  isMyTurn: game.isMyTurn,
-                  showPointNumbers: settings.pointNumbersEnabled,
-                  dice: game.snapshot!.dice,
-                  remainingDice: game.snapshot!.remainingDice,
-                  turnPhase: game.snapshot!.turnPhase,
-                  canBearOff: _canBearOff(game),
-                  validMoveTargets: game.isMyTurn
-                      ? (game.selectedPoint != null
-                          ? game.validMoveTargets
-                          : (game.snapshot!.board.bar[game.myColor] ?? 0) > 0
-                              ? ref.read(gameProvider.notifier).computeBarTargets()
-                              : const {})
-                      : const {},
-                  onPointTap: (index) {
-                    final notifier = ref.read(gameProvider.notifier);
-                    final myBar = game.snapshot!.board.bar[game.myColor] ?? 0;
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final horizontalPadding = _boardHorizontalPadding(context);
+                  final boardViewport = computeBoardViewport(
+                    Size(
+                      constraints.maxWidth - (horizontalPadding * 2),
+                      constraints.maxHeight,
+                    ),
+                  );
 
-                    if (myBar > 0 && game.isMyTurn) {
-                      notifier.movePieceFromBar(index);
-                      return;
-                    }
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Center(
+                      child: SizedBox(
+                        width: boardViewport.width,
+                        height: boardViewport.height,
+                        child: BoardWidget(
+                          board: game.snapshot!.board,
+                          myColor: game.myColor ?? 'W',
+                          selectedPoint: game.selectedPoint,
+                          isMyTurn: game.isMyTurn,
+                          showPointNumbers: settings.pointNumbersEnabled,
+                          dice: game.snapshot!.dice,
+                          remainingDice: game.snapshot!.remainingDice,
+                          turnPhase: game.snapshot!.turnPhase,
+                          canBearOff: _canBearOff(game),
+                          validMoveTargets: game.isMyTurn
+                              ? (game.selectedPoint != null
+                                  ? game.validMoveTargets
+                                  : (game.snapshot!.board.bar[game.myColor] ?? 0) > 0
+                                      ? ref.read(gameProvider.notifier).computeBarTargets()
+                                      : const {})
+                              : const {},
+                          onPointDragStart: (fromPoint) {
+                            ref.read(gameProvider.notifier).selectPoint(fromPoint);
+                          },
+                          onPointDrop: (fromPoint, toPoint) {
+                            ref.read(gameProvider.notifier).makeMove(fromPoint, toPoint);
+                          },
+                          onBarDrop: (toPoint) {
+                            ref.read(gameProvider.notifier).movePieceFromBar(toPoint);
+                          },
+                          onBearOffDrop: (fromPoint) {
+                            ref.read(gameProvider.notifier).bearOff(fromPoint);
+                          },
+                          onPointTap: (index) {
+                            final notifier = ref.read(gameProvider.notifier);
+                            final myBar = game.snapshot!.board.bar[game.myColor] ?? 0;
 
-                    if (game.selectedPoint == null) {
-                      final point = game.snapshot!.board.points[index];
-                      if (point.count > 0 && point.player == game.myColor) {
-                        notifier.selectPoint(index);
-                      }
-                    } else if (game.selectedPoint == index) {
-                      notifier.selectPoint(-1);
-                    } else {
-                      notifier.makeMove(game.selectedPoint!, index);
-                    }
-                  },
-                  onBarTap: () {},
-                  onDiceTap: game.isMyTurn && game.snapshot!.turnPhase == 'rolling'
-                      ? () => ref.read(gameProvider.notifier).rollDice()
-                      : null,
-                  onBearOffTap: game.isMyTurn && game.selectedPoint != null
-                      ? () => ref.read(gameProvider.notifier).bearOff(game.selectedPoint!)
-                      : null,
-                ),
+                            if (myBar > 0 && game.isMyTurn) {
+                              notifier.movePieceFromBar(index);
+                              return;
+                            }
+
+                            if (game.selectedPoint == null) {
+                              final point = game.snapshot!.board.points[index];
+                              if (point.count > 0 && point.player == game.myColor) {
+                                notifier.selectPoint(index);
+                              }
+                            } else if (game.selectedPoint == index) {
+                              notifier.selectPoint(-1);
+                            } else {
+                              notifier.makeMove(game.selectedPoint!, index);
+                            }
+                          },
+                          onBarTap: () {},
+                          onDiceTap: game.isMyTurn && game.snapshot!.turnPhase == 'rolling'
+                              ? () => ref.read(gameProvider.notifier).rollDice()
+                              : null,
+                          onBearOffTap: game.isMyTurn && game.selectedPoint != null
+                              ? () => ref.read(gameProvider.notifier).bearOff(game.selectedPoint!)
+                              : null,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
 
