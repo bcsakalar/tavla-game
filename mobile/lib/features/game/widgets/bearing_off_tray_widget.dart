@@ -28,7 +28,7 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badgeFontSize = (width * 0.28).clamp(10.0, 12.0).toDouble();
+    final badgeFontSize = (width * 0.3).clamp(10.0, 13.0).toDouble();
 
     return DragTarget<T>(
       onWillAcceptWithDetails: (details) => onWillAccept?.call(details.data) ?? false,
@@ -62,7 +62,7 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
                         : const Color(0xFF1A1008),
                 width: isValidTarget ? 2.0 : 1.0,
               ),
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(7),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.7),
@@ -94,8 +94,30 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x221A0F08),
+                          Color(0x00000000),
+                          Color(0x18000000),
+                        ],
+                        stops: [0.0, 0.4, 1.0],
+                      ),
+                      border: Border.all(
+                        color: Colors.white10,
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -121,7 +143,7 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
                   ),
                 Column(
                   children: [
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 7),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
@@ -156,11 +178,11 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: _buildPieceStack(),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                   ],
                 ),
               ],
@@ -172,7 +194,7 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
   }
 
   Widget _buildPieceStack() {
-    final pieceSize = (width * 0.56).clamp(18.0, 24.0).toDouble();
+    final pieceSize = (width * 0.62).clamp(18.0, 22.0).toDouble();
 
     if (count == 0) {
       // Empty slot indicator
@@ -191,7 +213,7 @@ class BearingOffTrayWidget<T extends Object> extends StatelessWidget {
       );
     }
 
-    const maxVisible = 10;
+    const maxVisible = 11;
     final visibleCount = count.clamp(0, maxVisible);
 
     return Column(

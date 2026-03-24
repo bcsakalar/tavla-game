@@ -22,9 +22,9 @@ class PieceWidget extends StatelessWidget {
     final isWhite = player == 'W';
     final rimWidth = size * 0.08;
     final bodySize = size - rimWidth * 2;
-    final outerShadowBlur = size * 0.17;
-    final topHighlightAlpha = isWhite ? 0.68 : 0.18;
-    final lowerGlowAlpha = isWhite ? 0.18 : 0.08;
+    final outerShadowBlur = size * 0.2;
+    final topHighlightAlpha = isWhite ? 0.74 : 0.22;
+    final lowerGlowAlpha = isWhite ? 0.22 : 0.1;
 
     return GestureDetector(
       onTap: onTap,
@@ -41,16 +41,16 @@ class PieceWidget extends StatelessWidget {
               radius: 0.9,
               colors: isWhite
                   ? [
-                      const Color(0xFFE7E2D8),
-                      const Color(0xFFD1C9BB),
-                      const Color(0xFFACA393),
-                      const Color(0xFF7F776C),
+                      const Color(0xFFF1ECE3),
+                      const Color(0xFFD8D0C1),
+                      const Color(0xFFACA292),
+                      const Color(0xFF756D62),
                     ]
                   : [
-                      const Color(0xFF72655A),
-                      const Color(0xFF584B41),
-                      const Color(0xFF443932),
-                      const Color(0xFF312822),
+                      const Color(0xFF7A6B5E),
+                      const Color(0xFF5A4C42),
+                      const Color(0xFF40352F),
+                      const Color(0xFF281F1B),
                     ],
               stops: const [0.0, 0.3, 0.7, 1.0],
             ),
@@ -66,6 +66,12 @@ class PieceWidget extends StatelessWidget {
                 blurRadius: outerShadowBlur,
                 spreadRadius: 0.5,
                 offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 2,
+                spreadRadius: -0.5,
+                offset: const Offset(0, -1),
               ),
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.25),
@@ -92,17 +98,17 @@ class PieceWidget extends StatelessWidget {
                   colors: isWhite
                       ? [
                           const Color(0xFFFFFCF4),
-                          const Color(0xFFF3ECDD),
-                          const Color(0xFFE3D8BF),
-                          const Color(0xFFD1C3A6),
-                          const Color(0xFFBAAC8F),
+                          const Color(0xFFF5EEDC),
+                          const Color(0xFFE4D7BB),
+                          const Color(0xFFD0C09F),
+                          const Color(0xFFAF9F82),
                         ]
                       : [
-                          const Color(0xFF6B5A4B),
-                          const Color(0xFF55473C),
-                          const Color(0xFF473B33),
-                          const Color(0xFF382F29),
-                          const Color(0xFF2A231F),
+                          const Color(0xFF6B5B4D),
+                          const Color(0xFF54473D),
+                          const Color(0xFF443932),
+                          const Color(0xFF332A25),
+                          const Color(0xFF211B18),
                         ],
                   stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
                 ),
@@ -130,6 +136,21 @@ class PieceWidget extends StatelessWidget {
                             Colors.black.withValues(alpha: isWhite ? 0.06 : 0.14),
                           ],
                           stops: const [0.0, 0.34, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      width: bodySize * 0.84,
+                      height: bodySize * 0.84,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isWhite
+                              ? Colors.white.withValues(alpha: 0.18)
+                              : Colors.white.withValues(alpha: 0.04),
+                          width: 0.7,
                         ),
                       ),
                     ),
@@ -189,7 +210,7 @@ class PieceWidget extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            Colors.white.withValues(alpha: isWhite ? 0.62 : 0.18),
+                            Colors.white.withValues(alpha: isWhite ? 0.66 : 0.2),
                             Colors.white.withValues(alpha: 0.0),
                           ],
                         ),

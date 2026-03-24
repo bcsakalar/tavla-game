@@ -87,6 +87,7 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
         child: Column(
           children: [
             // Bot info bar (top)
+            SizedBox(height: _playerBarOuterGap(context, true)),
             _buildPlayerBar(context, isBot: true, game: game),
 
             // Board (with integrated dice in center bar and bearing-off trays)
@@ -94,15 +95,19 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final horizontalPadding = _boardHorizontalPadding(context);
+                  final verticalInset = _boardVerticalInset(context);
                   final boardViewport = computeBoardViewport(
                     Size(
                       constraints.maxWidth - (horizontalPadding * 2),
-                      constraints.maxHeight,
+                      constraints.maxHeight - (verticalInset * 2),
                     ),
                   );
 
                   return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: verticalInset,
+                    ),
                     child: Center(
                       child: SizedBox(
                         width: boardViewport.width,
@@ -177,6 +182,7 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
 
             // Player info bar (bottom)
             _buildPlayerBar(context, isBot: false, game: game),
+            SizedBox(height: _playerBarOuterGap(context, false)),
 
             // Action buttons
             _buildActionBar(context, game),
@@ -200,122 +206,136 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
             : 'Zor';
     final borneOff = _getBorneOff(game, isBot);
     final isBotThinking = isBot && !game.isMyTurn && game.phase == GamePhase.playing;
+    final horizontalPadding = MediaQuery.sizeOf(context).width < 390 ? 12.0 : 14.0;
+    final verticalPadding = isBot ? 8.0 : 9.0;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: isCurrentTurn
-            ? LinearGradient(
-                colors: [
-                  const Color(0xFF2A2A2E).withValues(alpha: 0.8),
-                  const Color(0xFF1A1A1C).withValues(alpha: 0.6),
-                ],
-              )
-            : null,
-        color: isCurrentTurn ? null : const Color(0xFF1A1A1C),
-        border: Border(
-          bottom: isBot
-              ? BorderSide(
-                  color: isCurrentTurn
-                      ? TavlaTheme.gold.withValues(alpha: 0.4)
-                      : Colors.transparent,
-                  width: 1,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        decoration: BoxDecoration(
+          gradient: isCurrentTurn
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF2E2A27).withValues(alpha: 0.92),
+                    const Color(0xFF1E1B1A).withValues(alpha: 0.9),
+                    const Color(0xFF171719).withValues(alpha: 0.82),
+                  ],
+                  stops: const [0.0, 0.52, 1.0],
                 )
-              : BorderSide.none,
-          top: !isBot
-              ? BorderSide(
-                  color: isCurrentTurn
-                      ? TavlaTheme.gold.withValues(alpha: 0.4)
-                      : Colors.transparent,
-                  width: 1,
-                )
-              : BorderSide.none,
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF222224), Color(0xFF18181A)],
+                ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isCurrentTurn
+                ? TavlaTheme.gold.withValues(alpha: 0.28)
+                : Colors.white.withValues(alpha: 0.04),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+              spreadRadius: -4,
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isCurrentTurn ? TavlaTheme.gold : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor:
-                  isBot ? TavlaTheme.blackPiece : TavlaTheme.whitePiece,
-              child: Icon(
-                isBot ? Icons.smart_toy : Icons.person,
-                size: 16,
-                color: isBot ? Colors.white : TavlaTheme.darkBrown,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isBot ? 'Bot ($diffLabel)' : (auth.user?.username ?? 'Sen'),
-                style: TextStyle(
-                  color: TavlaTheme.cream,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  shadows: isCurrentTurn
-                      ? [
-                          Shadow(
-                            color: TavlaTheme.gold.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                          ),
-                        ]
-                      : null,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isCurrentTurn ? TavlaTheme.gold : Colors.transparent,
+                  width: 2,
                 ),
               ),
-              if (isCurrentTurn && !isBotThinking)
-                Text(
-                  'Sıra',
-                  style: TextStyle(
-                    color: TavlaTheme.gold.withValues(alpha: 0.7),
-                    fontSize: 10,
-                  ),
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor:
+                    isBot ? TavlaTheme.blackPiece : TavlaTheme.whitePiece,
+                child: Icon(
+                  isBot ? Icons.smart_toy : Icons.person,
+                  size: 16,
+                  color: isBot ? Colors.white : TavlaTheme.darkBrown,
                 ),
-              if (isBotThinking)
-                _BotThinkingIndicator(),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: Row(
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  size: 14,
-                  color: TavlaTheme.cream.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: 4),
                 Text(
-                  '$borneOff/15',
+                  isBot ? 'Bot ($diffLabel)' : (auth.user?.username ?? 'Sen'),
                   style: TextStyle(
-                    color: TavlaTheme.cream.withValues(alpha: 0.8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    color: TavlaTheme.cream,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    shadows: isCurrentTurn
+                        ? [
+                            Shadow(
+                              color: TavlaTheme.gold.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                            ),
+                          ]
+                        : null,
                   ),
                 ),
+                const SizedBox(height: 2),
+                if (isCurrentTurn && !isBotThinking)
+                  Text(
+                    'Sıra',
+                    style: TextStyle(
+                      color: TavlaTheme.gold.withValues(alpha: 0.75),
+                      fontSize: 10,
+                    ),
+                  ),
+                if (isBotThinking)
+                  _BotThinkingIndicator(),
               ],
             ),
-          ),
-        ],
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 14,
+                    color: TavlaTheme.cream.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$borneOff/15',
+                    style: TextStyle(
+                      color: TavlaTheme.cream.withValues(alpha: 0.82),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -352,6 +372,20 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
     if (width < 430) return 4;
     if (width < 520) return 8;
     return 12;
+  }
+
+  double _boardVerticalInset(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    if (height < 720) return 6;
+    if (height < 860) return 8;
+    return 10;
+  }
+
+  double _playerBarOuterGap(BuildContext context, bool isTop) {
+    final height = MediaQuery.sizeOf(context).height;
+    if (height < 720) return isTop ? 4 : 2;
+    if (height < 860) return isTop ? 6 : 4;
+    return isTop ? 8 : 5;
   }
 
   Widget _buildActionBar(BuildContext context, GamePlayState game) {

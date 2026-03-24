@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../../../core/theme/tavla_theme.dart';
 import '../models/game_state.dart';
 import 'piece_widget.dart';
@@ -65,10 +66,10 @@ class BoardWidget extends StatelessWidget {
         final boardWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
-        final outerRadius = (boardWidth * 0.032).clamp(13.0, 16.0).toDouble();
-        final framePadding = (boardWidth * 0.015).clamp(4.0, 7.0).toDouble();
-        final trayWidth = (boardWidth * 0.085).clamp(30.0, 40.0).toDouble();
-        final centerBarWidth = (boardWidth * 0.102).clamp(34.0, 46.0).toDouble();
+        final outerRadius = (boardWidth * 0.036).clamp(14.0, 18.0).toDouble();
+        final framePadding = (boardWidth * 0.012).clamp(3.5, 5.5).toDouble();
+        final trayWidth = (boardWidth * 0.074).clamp(28.0, 34.0).toDouble();
+        final centerBarWidth = (boardWidth * 0.092).clamp(32.0, 40.0).toDouble();
 
         return Container(
           decoration: BoxDecoration(
@@ -76,12 +77,12 @@ class BoardWidget extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.62),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
               ),
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.24),
-                blurRadius: 5,
+                blurRadius: 9,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -107,6 +108,16 @@ class BoardWidget extends StatelessWidget {
               padding: EdgeInsets.all(framePadding),
               child: Container(
                 decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF493223),
+                      Color(0xFF312015),
+                      Color(0xFF24170F),
+                    ],
+                    stops: [0.0, 0.56, 1.0],
+                  ),
                   borderRadius: BorderRadius.circular(outerRadius * 0.55),
                   border: Border.all(
                     color: TavlaTheme.boardFrameDark,
@@ -213,105 +224,148 @@ class BoardWidget extends StatelessWidget {
       }
     }
 
-    return Column(
-      children: [
-        // Top point numbers
-        if (showPointNumbers)
-          _buildPointNumberRow(topIndices),
-        // Top row of 6 points (triangles pointing down)
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  TavlaTheme.surfaceGrayLight,
-                  TavlaTheme.surfaceGray,
-                  Color(0xFF373330),
-                  Color(0xFF322E2B),
-                ],
-                stops: [0.0, 0.15, 0.5, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 3,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Row(
-              children: topIndices.map((idx) {
-                return Expanded(child: _buildPoint(context, idx, true));
-              }).toList(),
-            ),
-          ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1.5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.black.withValues(alpha: 0.35),
+          width: 0.8,
         ),
-        // Bottom row of 6 points (triangles pointing up)
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF322E2B),
-                  Color(0xFF373330),
-                  TavlaTheme.surfaceGray,
-                  TavlaTheme.surfaceGrayLight,
-                ],
-                stops: [0.0, 0.5, 0.85, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 3,
-                  offset: const Offset(0, -1),
-                ),
-              ],
-            ),
-            child: Row(
-              children: bottomIndices.map((idx) {
-                return Expanded(child: _buildPoint(context, idx, false));
-              }).toList(),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 3,
+            spreadRadius: -1,
+            offset: const Offset(0, 1),
           ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: Column(
+          children: [
+            if (showPointNumbers) _buildPointNumberRow(topIndices),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF5D5751),
+                      TavlaTheme.surfaceGrayLight,
+                      TavlaTheme.surfaceGray,
+                      Color(0xFF2D2927),
+                    ],
+                    stops: [0.0, 0.16, 0.56, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: topIndices.map((idx) {
+                    return Expanded(child: _buildPoint(context, idx, true));
+                  }).toList(),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF2D2927),
+                      TavlaTheme.surfaceGray,
+                      TavlaTheme.surfaceGrayLight,
+                      Color(0xFF5D5751),
+                    ],
+                    stops: [0.0, 0.44, 0.84, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 4,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: bottomIndices.map((idx) {
+                    return Expanded(child: _buildPoint(context, idx, false));
+                  }).toList(),
+                ),
+              ),
+            ),
+            if (showPointNumbers) _buildPointNumberRow(bottomIndices),
+          ],
         ),
-        // Bottom point numbers
-        if (showPointNumbers)
-          _buildPointNumberRow(bottomIndices),
-      ],
+      ),
     );
   }
 
   Widget _buildPointNumberRow(List<int> indices) {
     return Container(
-      height: 16,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF2A1A0E), Color(0xFF3A2414)],
+          colors: [Color(0xFF27190F), Color(0xFF402717), Color(0xFF26170E)],
+          stops: [0.0, 0.52, 1.0],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 0.6,
+          ),
+          bottom: BorderSide(
+            color: Colors.black.withValues(alpha: 0.24),
+            width: 0.7,
+          ),
         ),
       ),
       child: Row(
         children: indices.map((idx) {
           return Expanded(
             child: Center(
-              child: Text(
-                '${idx + 1}',
-                style: TextStyle(
-                  color: TavlaTheme.gold.withValues(alpha: 0.7),
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      offset: const Offset(0, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.03),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Text(
+                  '${idx + 1}',
+                  style: TextStyle(
+                    color: TavlaTheme.gold.withValues(alpha: 0.82),
+                    fontSize: 8,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.58),
+                        offset: const Offset(0, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -361,8 +415,13 @@ class BoardWidget extends StatelessWidget {
           onTap: isMyTurn ? () => onPointTap(pointIndex) : null,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final pieceSize = constraints.maxWidth * 0.85;
-              final maxPiecesVisible = (constraints.maxHeight / (pieceSize * 0.82)).floor().clamp(1, 5);
+              final pieceSize = math.min(
+                constraints.maxWidth * 0.82,
+                constraints.maxHeight * 0.26,
+              ).clamp(16.0, 30.0).toDouble();
+              final stackGap = (pieceSize * 0.055).clamp(0.7, 1.4).toDouble();
+              final maxPiecesVisible =
+                  (constraints.maxHeight / (pieceSize * 0.72)).floor().clamp(1, 6);
               final piecesToShow = point.count > maxPiecesVisible ? maxPiecesVisible : point.count;
 
               return Stack(
@@ -420,8 +479,8 @@ class BoardWidget extends StatelessWidget {
                     ),
                   if (point.count > 0)
                     Positioned(
-                      top: isTop ? 0 : null,
-                      bottom: isTop ? null : 0,
+                      top: isTop ? 4 : null,
+                      bottom: isTop ? null : 4,
                       left: 0,
                       right: 0,
                       child: _buildDraggablePointStack(
@@ -433,6 +492,7 @@ class BoardWidget extends StatelessWidget {
                         maxPiecesVisible: maxPiecesVisible,
                         isSelected: isSelected,
                         canDrag: canDragPoint,
+                        stackGap: stackGap,
                       ),
                     ),
                   if (isValidTarget && point.count > 0)
@@ -476,25 +536,26 @@ class BoardWidget extends StatelessWidget {
     required int maxPiecesVisible,
     required bool isSelected,
     required bool canDrag,
+    required double stackGap,
   }) {
     final stack = KeyedSubtree(
       key: ValueKey('point-stack-$pointIndex'),
       child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        piecesToShow,
-        (i) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 0.5),
-          child: PieceWidget(
-            player: player,
-            count: (i == piecesToShow - 1 && pointCount > maxPiecesVisible)
-                ? pointCount
-                : 1,
-            size: pieceSize,
-            isSelected: isSelected && i == 0,
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+          piecesToShow,
+          (i) => Padding(
+            padding: EdgeInsets.symmetric(vertical: stackGap),
+            child: PieceWidget(
+              player: player,
+              count: (i == piecesToShow - 1 && pointCount > maxPiecesVisible)
+                  ? pointCount
+                  : 1,
+              size: pieceSize,
+              isSelected: isSelected && i == 0,
+            ),
           ),
         ),
-      ),
       ),
     );
 
@@ -528,8 +589,8 @@ class BoardWidget extends StatelessWidget {
   Widget _buildMoveHintDot(bool isDanger) {
     final color = isDanger ? TavlaTheme.danger : TavlaTheme.success;
     return Container(
-      width: 18,
-      height: 18,
+      width: 16,
+      height: 16,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: color.withValues(alpha: 0.65),
@@ -580,7 +641,7 @@ class BoardWidget extends StatelessWidget {
     final whiteBar = board.bar['W'] ?? 0;
     final blackBar = board.bar['B'] ?? 0;
     final isWhite = myColor == 'W';
-    final pieceSize = (width * 0.66).clamp(20.0, 28.0).toDouble();
+    final pieceSize = (width * 0.6).clamp(19.0, 25.0).toDouble();
 
     // Determine which bar pieces go on top vs bottom based on perspective
     final topBarCount = isWhite ? blackBar : whiteBar;
@@ -609,6 +670,16 @@ class BoardWidget extends StatelessWidget {
             ],
             stops: [0.0, 0.18, 0.5, 0.82, 1.0],
           ),
+          border: Border(
+            left: BorderSide(
+              color: Colors.black.withValues(alpha: 0.42),
+              width: 1,
+            ),
+            right: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.46),
@@ -629,19 +700,20 @@ class BoardWidget extends StatelessWidget {
         ),
         child: Column(
           children: [
+            const SizedBox(height: 6),
             // Top bar pieces (opponent's captured pieces)
             if (topBarCount > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: 2),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(
-                    topBarCount.clamp(0, 3),
+                    topBarCount.clamp(0, 4),
                     (i) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 1),
+                      padding: const EdgeInsets.symmetric(vertical: 0.8),
                       child: PieceWidget(
                         player: topBarPlayer,
-                        count: (i == topBarCount.clamp(0, 3) - 1 && topBarCount > 3)
+                        count: (i == topBarCount.clamp(0, 4) - 1 && topBarCount > 4)
                             ? topBarCount
                             : 1,
                         size: pieceSize,
@@ -662,7 +734,7 @@ class BoardWidget extends StatelessWidget {
             // Bottom bar pieces (my captured pieces)
             if (bottomBarCount > 0)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 2),
                 child: _buildBottomBarStack(
                   player: bottomBarPlayer,
                   pieceSize: pieceSize,
@@ -670,6 +742,7 @@ class BoardWidget extends StatelessWidget {
                   canDragFromBar: canDragFromBar,
                 ),
               ),
+            const SizedBox(height: 6),
           ],
         ),
       ),
@@ -685,12 +758,12 @@ class BoardWidget extends StatelessWidget {
     final stack = Column(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(
-        bottomBarCount.clamp(0, 3),
+        bottomBarCount.clamp(0, 4),
         (i) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 1),
+          padding: const EdgeInsets.symmetric(vertical: 0.8),
           child: PieceWidget(
             player: player,
-            count: (i == bottomBarCount.clamp(0, 3) - 1 && bottomBarCount > 3)
+            count: (i == bottomBarCount.clamp(0, 4) - 1 && bottomBarCount > 4)
                 ? bottomBarCount
                 : 1,
             size: pieceSize,
@@ -729,9 +802,9 @@ class BoardWidget extends StatelessWidget {
         'BAR',
         style: TextStyle(
           color: TavlaTheme.gold.withValues(alpha: 0.4),
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.bold,
-          letterSpacing: 3,
+          letterSpacing: 2.4,
         ),
       ),
     );
@@ -739,12 +812,12 @@ class BoardWidget extends StatelessWidget {
 
   Widget _buildDiceArea(bool isRolling, double barWidth) {
     final remaining = remainingDice ?? [];
-    final diceSize = (barWidth * 0.82).clamp(28.0, 34.0).toDouble();
+    final diceSize = (barWidth * 0.8).clamp(28.0, 34.0).toDouble();
 
     return GestureDetector(
       onTap: isRolling ? onDiceTap : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -839,15 +912,16 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final triHeight = size.height * 0.88;
+    final triHeight = size.height * 0.94;
+    final baseInset = math.max(0.8, size.width * 0.04);
     final path = Path();
     if (isTop) {
-      path.moveTo(0, 0);
-      path.lineTo(size.width, 0);
+      path.moveTo(baseInset, 0);
+      path.lineTo(size.width - baseInset, 0);
       path.lineTo(size.width / 2, triHeight);
     } else {
-      path.moveTo(0, size.height);
-      path.lineTo(size.width, size.height);
+      path.moveTo(baseInset, size.height);
+      path.lineTo(size.width - baseInset, size.height);
       path.lineTo(size.width / 2, size.height - triHeight);
     }
     path.close();
@@ -857,9 +931,9 @@ class _TrianglePainter extends CustomPainter {
       begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
       end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
       colors: [
-        _shiftColor(color2, 0.1),
+        _shiftColor(color2, 0.14),
         color1,
-        _shiftColor(color1, -0.08),
+        _shiftColor(color1, -0.12),
       ],
       stops: const [0.0, 0.42, 1.0],
     );
@@ -873,17 +947,49 @@ class _TrianglePainter extends CustomPainter {
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: [
-          Colors.black.withValues(alpha: 0.1),
+          Colors.black.withValues(alpha: 0.14),
           Colors.transparent,
-          Colors.white.withValues(alpha: 0.06),
+          Colors.white.withValues(alpha: 0.08),
         ],
       ).createShader(rect)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, sideShade);
 
+    final baseEdgePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
+    final baseHighlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
+    if (isTop) {
+      canvas.drawLine(
+        Offset(baseInset, 0.8),
+        Offset(size.width - baseInset, 0.8),
+        baseEdgePaint,
+      );
+      canvas.drawLine(
+        Offset(baseInset, 1.8),
+        Offset(size.width - baseInset, 1.8),
+        baseHighlightPaint,
+      );
+    } else {
+      canvas.drawLine(
+        Offset(baseInset, size.height - 0.8),
+        Offset(size.width - baseInset, size.height - 0.8),
+        baseEdgePaint,
+      );
+      canvas.drawLine(
+        Offset(baseInset, size.height - 1.8),
+        Offset(size.width - baseInset, size.height - 1.8),
+        baseHighlightPaint,
+      );
+    }
+
     // Darker outline for depth
     final outlinePaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
+      ..color = Colors.black.withValues(alpha: 0.24)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.7;
     canvas.drawPath(path, outlinePaint);
