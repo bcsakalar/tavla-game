@@ -43,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Session for admin panel — use Redis store in production to avoid MemoryStore leak
+// Session for admin panel — prefer Redis, fallback to PostgreSQL, avoid MemoryStore in production
 const sessionConfig = {
   secret: config.session.secret || 'dev-secret-change-me',
   resave: false,
@@ -58,13 +58,26 @@ const sessionConfig = {
 
 if (redis) {
   try {
-    const { RedisStore } = require('connect-redis');
+    const RedisStore = require('connect-redis').default;
     sessionConfig.store = new RedisStore({
       client: redis,
       prefix: 'sess:',
     });
   } catch {
-    // connect-redis not available — fallback to MemoryStore
+    // Redis store unavailable — fallback handled below.
+  }
+}
+
+if (!sessionConfig.store) {
+  try {
+    const PgStore = require('connect-pg-simple')(session);
+    sessionConfig.store = new PgStore({
+      pool: db.pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    });
+  } catch {
+    // PostgreSQL session store unavailable — express-session will use MemoryStore as last resort.
   }
 }
 

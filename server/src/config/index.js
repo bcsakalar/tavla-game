@@ -36,7 +36,7 @@ const config = {
   },
 
   redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    url: process.env.REDIS_URL || (process.env.NODE_ENV === 'production' ? null : 'redis://localhost:6379'),
     keyPrefix: 'tavla:',
   },
 };
