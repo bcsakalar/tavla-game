@@ -9,6 +9,7 @@ const path = require('path');
 const config = require('./config');
 const requestId = require('./middleware/requestId');
 const db = require('./models/db');
+const redis = require('./config/redis');
 
 // Create Express app & HTTP server
 const app = express();
@@ -42,8 +43,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Session for admin panel
-app.use(session({
+// Session for admin panel — use Redis store in production to avoid MemoryStore leak
+const sessionConfig = {
   secret: config.session.secret || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
@@ -53,7 +54,21 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'lax',
   },
-}));
+};
+
+if (redis) {
+  try {
+    const { RedisStore } = require('connect-redis');
+    sessionConfig.store = new RedisStore({
+      client: redis,
+      prefix: 'sess:',
+    });
+  } catch {
+    // connect-redis not available — fallback to MemoryStore
+  }
+}
+
+app.use(session(sessionConfig));
 
 // API routes
 const { apiLimiter } = require('./middleware/rateLimiter');
