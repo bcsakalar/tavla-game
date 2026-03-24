@@ -42,65 +42,105 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
+  static const Duration _authRequestTimeout = Duration(seconds: 15);
+
   final ApiClient _api;
   final AuthStorage _storage;
   final SocketService _socket;
+  int _authOperationId = 0;
 
   AuthNotifier(this._api, this._storage, this._socket)
       : super(const AuthState()) {
-    checkAuth();
+    unawaited(checkAuth());
   }
 
   Future<void> checkAuth() async {
+    final operationId = _startAuthOperation();
     final hasTokens = await _storage.hasTokens();
+    if (_isStaleOperation(operationId)) return;
+
     if (!hasTokens) {
-      state = state.copyWith(status: AuthStatus.unauthenticated);
+      state = const AuthState(status: AuthStatus.unauthenticated);
       return;
     }
 
     try {
-      final data = await _api.getProfile();
+      final data = await _withAuthTimeout(_api.getProfile());
+      if (_isStaleOperation(operationId)) return;
+
       final user = User.fromJson(data);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       unawaited(_connectSocketSafely());
     } catch (_) {
+      if (_isStaleOperation(operationId)) return;
+
       await _storage.clearTokens();
-      state = state.copyWith(status: AuthStatus.unauthenticated);
+      if (_isStaleOperation(operationId)) return;
+
+      state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }
 
   Future<void> login(String identifier, String password) async {
-    state = state.copyWith(status: AuthStatus.loading);
+    final operationId = _startAuthOperation();
+    state = const AuthState(status: AuthStatus.loading);
+
     try {
-      final data = await _api.login(identifier, password);
+      final data = await _withAuthTimeout(_api.login(identifier, password));
+      if (_isStaleOperation(operationId)) return;
+
       await _storage.saveTokens(data['accessToken'], data['refreshToken']);
+      if (_isStaleOperation(operationId)) return;
+
       final user = User.fromJson(data['user']);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       unawaited(_connectSocketSafely());
     } catch (e) {
+      if (_isStaleOperation(operationId)) return;
+
       final message = _extractError(e);
       state = state.copyWith(status: AuthStatus.error, error: message);
     }
   }
 
   Future<void> register(String username, String email, String password) async {
-    state = state.copyWith(status: AuthStatus.loading);
+    final operationId = _startAuthOperation();
+    state = const AuthState(status: AuthStatus.loading);
+
     try {
-      final data = await _api.register(username, email, password);
+      final data = await _withAuthTimeout(
+        _api.register(username, email, password),
+      );
+      if (_isStaleOperation(operationId)) return;
+
       await _storage.saveTokens(data['accessToken'], data['refreshToken']);
+      if (_isStaleOperation(operationId)) return;
+
       final user = User.fromJson(data['user']);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       unawaited(_connectSocketSafely());
     } catch (e) {
+      if (_isStaleOperation(operationId)) return;
+
       final message = _extractError(e);
       state = state.copyWith(status: AuthStatus.error, error: message);
     }
   }
 
   Future<void> logout() async {
+    _startAuthOperation();
     _socket.disconnect();
     await _storage.clearTokens();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  int _startAuthOperation() {
+    _authOperationId += 1;
+    return _authOperationId;
+  }
+
+  bool _isStaleOperation(int operationId) {
+    return !mounted || operationId != _authOperationId;
   }
 
   Future<void> _connectSocketSafely() async {
@@ -109,7 +149,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {}
   }
 
+  Future<Map<String, dynamic>> _withAuthTimeout(
+    Future<Map<String, dynamic>> request,
+  ) {
+    return request.timeout(
+      _authRequestTimeout,
+      onTimeout: () => throw TimeoutException('Auth request timed out'),
+    );
+  }
+
   String _extractError(dynamic e) {
+    if (e is TimeoutException) {
+      return 'Sunucu yanit vermedi, lutfen tekrar deneyin';
+    }
+
     try {
       if (e is DioException) {
         final data = e.response?.data;
@@ -117,7 +170,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return data['error'].toString();
         }
         if (e.type == DioExceptionType.connectionError ||
-            e.type == DioExceptionType.connectionTimeout) {
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
           return 'Sunucuya bağlanılamadı';
         }
       }

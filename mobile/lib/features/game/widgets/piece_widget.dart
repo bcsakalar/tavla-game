@@ -22,6 +22,9 @@ class PieceWidget extends StatelessWidget {
     final isWhite = player == 'W';
     final rimWidth = size * 0.08;
     final bodySize = size - rimWidth * 2;
+    final outerShadowBlur = size * 0.17;
+    final topHighlightAlpha = isWhite ? 0.68 : 0.18;
+    final lowerGlowAlpha = isWhite ? 0.18 : 0.08;
 
     return GestureDetector(
       onTap: onTap,
@@ -38,34 +41,37 @@ class PieceWidget extends StatelessWidget {
               radius: 0.9,
               colors: isWhite
                   ? [
-                      const Color(0xFFD8D8DA),
-                      const Color(0xFFC0C0C2),
-                      const Color(0xFF9A9A9C),
-                      const Color(0xFF747476),
+                      const Color(0xFFE7E2D8),
+                      const Color(0xFFD1C9BB),
+                      const Color(0xFFACA393),
+                      const Color(0xFF7F776C),
                     ]
                   : [
-                      const Color(0xFF8A8A8C),
-                      const Color(0xFF6A6A6C),
-                      const Color(0xFF525254),
-                      const Color(0xFF404042),
+                      const Color(0xFF72655A),
+                      const Color(0xFF584B41),
+                      const Color(0xFF443932),
+                      const Color(0xFF312822),
                     ],
               stops: const [0.0, 0.3, 0.7, 1.0],
             ),
+            border: Border.all(
+              color: isWhite
+                  ? const Color(0xFF776A5B).withValues(alpha: 0.45)
+                  : const Color(0xFFDCCAA8).withValues(alpha: 0.16),
+              width: rimWidth * 0.55,
+            ),
             boxShadow: [
-              // Main drop shadow
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 6,
+                blurRadius: outerShadowBlur,
                 spreadRadius: 0.5,
                 offset: const Offset(0, 3),
               ),
-              // Subtle ambient shadow
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 2,
                 offset: const Offset(0, 1),
               ),
-              // Selected gold glow
               if (isSelected)
                 BoxShadow(
                   color: TavlaTheme.gold.withValues(alpha: 0.7),
@@ -85,18 +91,18 @@ class PieceWidget extends StatelessWidget {
                   radius: 0.85,
                   colors: isWhite
                       ? [
-                          const Color(0xFFFAF6F0),
-                          const Color(0xFFEDE5D8),
-                          const Color(0xFFDDD4C4),
-                          const Color(0xFFCEC4B2),
-                          const Color(0xFFC0B6A0),
+                          const Color(0xFFFFFCF4),
+                          const Color(0xFFF3ECDD),
+                          const Color(0xFFE3D8BF),
+                          const Color(0xFFD1C3A6),
+                          const Color(0xFFBAAC8F),
                         ]
                       : [
-                          const Color(0xFF686868),
-                          const Color(0xFF545456),
-                          const Color(0xFF444446),
-                          const Color(0xFF363638),
-                          const Color(0xFF2C2C2E),
+                          const Color(0xFF6B5A4B),
+                          const Color(0xFF55473C),
+                          const Color(0xFF473B33),
+                          const Color(0xFF382F29),
+                          const Color(0xFF2A231F),
                         ],
                   stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
                 ),
@@ -111,6 +117,23 @@ class PieceWidget extends StatelessWidget {
               ),
               child: Stack(
                 children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: topHighlightAlpha),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: isWhite ? 0.06 : 0.14),
+                          ],
+                          stops: const [0.0, 0.34, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
                   // Inner concentric groove
                   Center(
                     child: Container(
@@ -136,6 +159,25 @@ class PieceWidget extends StatelessWidget {
                       ),
                     ),
                   ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      width: bodySize * 0.62,
+                      height: bodySize * 0.16,
+                      margin: EdgeInsets.only(bottom: bodySize * 0.12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(bodySize * 0.2),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: lowerGlowAlpha),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   // Primary shine highlight
                   Positioned(
                     left: bodySize * 0.18,
@@ -147,7 +189,7 @@ class PieceWidget extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            Colors.white.withValues(alpha: isWhite ? 0.55 : 0.15),
+                            Colors.white.withValues(alpha: isWhite ? 0.62 : 0.18),
                             Colors.white.withValues(alpha: 0.0),
                           ],
                         ),
@@ -165,7 +207,7 @@ class PieceWidget extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            Colors.white.withValues(alpha: isWhite ? 0.12 : 0.05),
+                            Colors.white.withValues(alpha: isWhite ? 0.16 : 0.06),
                             Colors.white.withValues(alpha: 0.0),
                           ],
                         ),

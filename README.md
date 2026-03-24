@@ -319,7 +319,7 @@ flutter pub get
 flutter run
 ```
 
-> **Not:** `lib/core/config/app_config.dart` dosyasında API URL'sini kendi ortamınıza göre ayarlayın.
+> **Not:** Üretim varsayılanı `https://tavla.berkecansakalar.com` olarak gelir. Lokal geliştirmede `./run_dev.sh` veya `--dart-define=API_BASE_URL=http://localhost:3006 --dart-define=SOCKET_URL=http://localhost:3006` kullanın. `API_BASE_URL` değerine `/api` eklemeyin; istek path'leri zaten `/api/...` ile başlar.
 
 ### 6. Admin Paneli
 Tarayıcıda `http://localhost:3006/admin` adresine gidin.
@@ -623,7 +623,8 @@ npm run test:watch
 
 **Test kapsamı:**
 - **Unit testler**: Oyun motoru (board, moves, dice, scoring, engine) + güvenlik/altyapı (logger, AppError, CSRF, rate limiter, request ID, constants, move validation)
-- **Integration testler**: API endpoint'leri (auth, users, games, leaderboard)
+- **Flutter testleri**: Auth provider regression/timeout senaryoları + app smoke test
+- **Integration testler**: API endpoint'leri için planlandı, `server/tests/integration/` henüz boş
 - **Test framework**: Jest + Supertest + fixtures
 - **Toplam**: 12 suite, 118 test
 

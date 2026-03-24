@@ -215,7 +215,10 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
     });
 
     _socket.on('game:error', (data) {
-      // Error handling
+      final message = _extractSocketErrorMessage(data);
+      if (message != null) {
+        _showTemporaryError(message);
+      }
     });
   }
 
@@ -248,10 +251,11 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
     if (snapshot == null) return {};
     final myColor = state.myColor;
     if (myColor == null) return {};
+    final sourcePoint = snapshot.board.points[fromPoint];
+    if (sourcePoint.count == 0 || sourcePoint.player != myColor) return {};
     final remaining = snapshot.remainingDice;
     if (remaining == null || remaining.isEmpty) return {};
 
-    final bearOffAllowed = _canBearOff(snapshot, myColor);
     final targets = <int>{};
     final usedDice = <int>{};
 
@@ -267,7 +271,9 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
       }
 
       if (targetIndex < 0 || targetIndex >= 24) {
-        if (bearOffAllowed) targets.add(-1);
+        if (_isValidBearOffDie(snapshot, myColor, fromPoint, die)) {
+          targets.add(-1);
+        }
         continue;
       }
 
@@ -279,6 +285,28 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
       targets.add(targetIndex);
     }
     return targets;
+  }
+
+  bool _isValidBearOffDie(
+    GameSnapshot snapshot,
+    String myColor,
+    int fromPoint,
+    int dieValue,
+  ) {
+    if (!_canBearOff(snapshot, myColor) || !_isHomePoint(fromPoint, myColor)) {
+      return false;
+    }
+
+    final pointNumber = _pointNumberForPlayer(fromPoint, myColor);
+    if (pointNumber == dieValue) {
+      return true;
+    }
+
+    if (pointNumber < dieValue) {
+      return _highestOccupiedHomePoint(snapshot, myColor) == fromPoint;
+    }
+
+    return false;
   }
 
   bool _canBearOff(GameSnapshot snapshot, String myColor) {
@@ -297,6 +325,56 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
       }
     }
     return homeCount == 15;
+  }
+
+  bool _isHomePoint(int pointIndex, String myColor) {
+    return myColor == 'W'
+        ? pointIndex >= 0 && pointIndex <= 5
+        : pointIndex >= 18 && pointIndex < 24;
+  }
+
+  int _pointNumberForPlayer(int pointIndex, String myColor) {
+    return myColor == 'W' ? pointIndex + 1 : 24 - pointIndex;
+  }
+
+  int _highestOccupiedHomePoint(GameSnapshot snapshot, String myColor) {
+    if (myColor == 'W') {
+      for (int i = 5; i >= 0; i--) {
+        final point = snapshot.board.points[i];
+        if (point.count > 0 && point.player == myColor) {
+          return i;
+        }
+      }
+    } else {
+      for (int i = 18; i < 24; i++) {
+        final point = snapshot.board.points[i];
+        if (point.count > 0 && point.player == myColor) {
+          return i;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  int? _resolveBearOffDie(GameSnapshot snapshot, String myColor, int fromPoint) {
+    final remaining = snapshot.remainingDice;
+    if (remaining == null || remaining.isEmpty) return null;
+
+    final pointNumber = _pointNumberForPlayer(fromPoint, myColor);
+    int? higherDie;
+
+    for (final die in remaining) {
+      if (!_isValidBearOffDie(snapshot, myColor, fromPoint, die)) continue;
+      if (die == pointNumber) {
+        return die;
+      }
+      if (higherDie == null || die < higherDie) {
+        higherDie = die;
+      }
+    }
+
+    return higherDie;
   }
 
   Set<int> computeBarTargets() {
@@ -337,12 +415,7 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
     if (!state.isMyTurn) return;
 
     if (state.validMoveTargets.isNotEmpty && !state.validMoveTargets.contains(to)) {
-      state = state.copyWith(
-        errorMessage: () => 'Buraya oynayamazsın!',
-      );
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) state = state.copyWith(errorMessage: () => null);
-      });
+      _showTemporaryError('Buraya oynayamazsın!');
       return;
     }
 
@@ -374,15 +447,22 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
 
   void bearOff(int from) {
     if (!state.isMyTurn) return;
+
+    final snapshot = state.snapshot;
     final myColor = state.myColor;
-    int dieValue;
-    if (myColor == 'W') {
-      dieValue = from + 1;
-    } else {
-      dieValue = 24 - from;
+    if (snapshot == null || myColor == null) return;
+
+    final dieValue = _resolveBearOffDie(snapshot, myColor, from);
+    if (dieValue == null) {
+      _showTemporaryError('Bu taşı bu zarla toplayamazsın!');
+      return;
     }
+
     _socket.emit('bot:move', {'from': from, 'to': 'off', 'dieValue': dieValue});
-    state = state.copyWith(selectedPoint: () => null);
+    state = state.copyWith(
+      selectedPoint: () => null,
+      validMoveTargets: {},
+    );
   }
 
   void undoMove() {
@@ -416,17 +496,36 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
         }
 
         if (hasValidMove) {
-          state = state.copyWith(
-            errorMessage: () => 'Hâlâ oynayabileceğin hamleler var!',
-          );
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) state = state.copyWith(errorMessage: () => null);
-          });
+          _showTemporaryError('Hâlâ oynayabileceğin hamleler var!');
           return;
         }
       }
     }
     _socket.emit('bot:endTurn');
+  }
+
+  String? _extractSocketErrorMessage(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final value = data['message'] ?? data['error'];
+      if (value != null) return value.toString();
+    } else if (data is Map) {
+      final value = data['message'] ?? data['error'];
+      if (value != null) return value.toString();
+    } else if (data is String && data.isNotEmpty) {
+      return data;
+    }
+
+    return null;
+  }
+
+  void _showTemporaryError(String message) {
+    if (!mounted) return;
+    state = state.copyWith(errorMessage: () => message);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && state.errorMessage == message) {
+        state = state.copyWith(errorMessage: () => null);
+      }
+    });
   }
 
   void resign() {

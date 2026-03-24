@@ -17,19 +17,19 @@ class TavlaTheme {
   static const Color danger = Color(0xFFDC3545);
 
   // Premium board colors (walnut + charcoal)
-  static const Color boardFrame = Color(0xFF3A2414);
-  static const Color boardFrameLight = Color(0xFF4A3020);
-  static const Color boardFrameDark = Color(0xFF2A1A0E);
-  static const Color surfaceGray = Color(0xFF3E3E40);
-  static const Color surfaceGrayLight = Color(0xFF484848);
-  static const Color pointRed = Color(0xFF1E1E20);
-  static const Color pointRedLight = Color(0xFF2A2A2E);
-  static const Color pointCream = Color(0xFFC0B5A5);
-  static const Color pointCreamDark = Color(0xFFA89C8C);
-  static const Color feltGreen = Color(0xFF3E3E40);
-  static const Color feltGreenLight = Color(0xFF484848);
-  static const Color barWood = Color(0xFF2E2E30);
-  static const Color barWoodLight = Color(0xFF3C3C3E);
+  static const Color boardFrame = Color(0xFF4E3321);
+  static const Color boardFrameLight = Color(0xFF6C4A32);
+  static const Color boardFrameDark = Color(0xFF2B1A10);
+  static const Color surfaceGray = Color(0xFF413C38);
+  static const Color surfaceGrayLight = Color(0xFF534D48);
+  static const Color pointRed = Color(0xFF6C372B);
+  static const Color pointRedLight = Color(0xFF824436);
+  static const Color pointCream = Color(0xFFD9C6A7);
+  static const Color pointCreamDark = Color(0xFFBBA27E);
+  static const Color feltGreen = Color(0xFF413C38);
+  static const Color feltGreenLight = Color(0xFF534D48);
+  static const Color barWood = Color(0xFF3A2A20);
+  static const Color barWoodLight = Color(0xFF4D392B);
   static const Color pieceRim = Color(0xFF9A9A9C);
   static const Color pieceRimDark = Color(0xFF707072);
 

@@ -52,111 +52,110 @@ class BoardWidget extends StatelessWidget {
     final opponentBorneOff = board.borneOff[opponentColor] ?? 0;
     final isBearOffTarget = validMoveTargets.contains(-1);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          // Main drop shadow (floating board effect)
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.7),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-          // Secondary ambient shadow
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final boardWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final outerRadius = (boardWidth * 0.032).clamp(13.0, 16.0).toDouble();
+        final framePadding = (boardWidth * 0.015).clamp(4.0, 7.0).toDouble();
+        final trayWidth = (boardWidth * 0.085).clamp(30.0, 40.0).toDouble();
+        final centerBarWidth = (boardWidth * 0.102).clamp(34.0, 46.0).toDouble();
+
+        return Container(
           decoration: BoxDecoration(
-            // Bevel frame: multi-stop gradient for carved wood look
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF5A3E28),
-                Color(0xFF4A3020),
-                Color(0xFF3A2414),
-                Color(0xFF2A1A0E),
-                Color(0xFF3A2414),
-                Color(0xFF4A3020),
-              ],
-              stops: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0],
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: const EdgeInsets.all(6),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(7),
-              // Inner border for depth
-              border: Border.all(
-                color: const Color(0xFF1A1008),
-                width: 1.5,
+            borderRadius: BorderRadius.circular(outerRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.62),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
-              // Inset shadow effect on playing surface
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 2),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(outerRadius),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    TavlaTheme.boardFrameLight,
+                    TavlaTheme.boardFrame,
+                    TavlaTheme.boardFrameDark,
+                    TavlaTheme.boardFrame,
+                    TavlaTheme.boardFrameLight,
+                  ],
+                  stops: [0.0, 0.18, 0.5, 0.82, 1.0],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(5.5),
-              child: Row(
-                children: [
-                  // Left bearing-off tray (opponent's tray when White, my tray when Black)
-                  BearingOffTrayWidget(
-                    player: isWhite ? opponentColor : myColor,
-                    count: isWhite ? opponentBorneOff : myBorneOff,
-                    isActive: !isWhite && canBearOff,
-                    isValidTarget: !isWhite && isBearOffTarget,
-                    onTap: !isWhite && isBearOffTarget ? onBearOffTap : null,
+                borderRadius: BorderRadius.circular(outerRadius),
+              ),
+              padding: EdgeInsets.all(framePadding),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(outerRadius * 0.55),
+                  border: Border.all(
+                    color: TavlaTheme.boardFrameDark,
+                    width: 1.4,
                   ),
-
-                  // Left panel (6 points top + 6 points bottom)
-                  Expanded(
-                    child: _buildPanel(
-                      context,
-                      isLeft: true,
-                      isWhite: isWhite,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 5,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 2),
                     ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(outerRadius * 0.42),
+                  child: Row(
+                    children: [
+                      BearingOffTrayWidget(
+                        player: isWhite ? opponentColor : myColor,
+                        count: isWhite ? opponentBorneOff : myBorneOff,
+                        width: trayWidth,
+                        isActive: !isWhite && canBearOff,
+                        isValidTarget: !isWhite && isBearOffTarget,
+                        onTap: !isWhite && isBearOffTarget ? onBearOffTap : null,
+                      ),
+                      Expanded(
+                        child: _buildPanel(
+                          context,
+                          isLeft: true,
+                          isWhite: isWhite,
+                        ),
+                      ),
+                      _buildCenterBar(context, centerBarWidth),
+                      Expanded(
+                        child: _buildPanel(
+                          context,
+                          isLeft: false,
+                          isWhite: isWhite,
+                        ),
+                      ),
+                      BearingOffTrayWidget(
+                        player: isWhite ? myColor : opponentColor,
+                        count: isWhite ? myBorneOff : opponentBorneOff,
+                        width: trayWidth,
+                        isActive: isWhite && canBearOff,
+                        isValidTarget: isWhite && isBearOffTarget,
+                        onTap: isWhite && isBearOffTarget ? onBearOffTap : null,
+                      ),
+                    ],
                   ),
-
-                  // Center bar (vertical) with dice
-                  _buildCenterBar(context),
-
-                  // Right panel (6 points top + 6 points bottom)
-                  Expanded(
-                    child: _buildPanel(
-                      context,
-                      isLeft: false,
-                      isWhite: isWhite,
-                    ),
-                  ),
-
-                  // Right bearing-off tray (my tray when White, opponent's when Black)
-                  BearingOffTrayWidget(
-                    player: isWhite ? myColor : opponentColor,
-                    count: isWhite ? myBorneOff : opponentBorneOff,
-                    isActive: isWhite && canBearOff,
-                    isValidTarget: isWhite && isBearOffTarget,
-                    onTap: isWhite && isBearOffTarget ? onBearOffTap : null,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -200,7 +199,12 @@ class BoardWidget extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF353535), Color(0xFF3E3E40), Color(0xFF404042), Color(0xFF3A3A3C)],
+                colors: [
+                  TavlaTheme.surfaceGrayLight,
+                  TavlaTheme.surfaceGray,
+                  Color(0xFF373330),
+                  Color(0xFF322E2B),
+                ],
                 stops: [0.0, 0.15, 0.5, 1.0],
               ),
               boxShadow: [
@@ -225,7 +229,12 @@ class BoardWidget extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF3A3A3C), Color(0xFF404042), Color(0xFF3E3E40), Color(0xFF353535)],
+                colors: [
+                  Color(0xFF322E2B),
+                  Color(0xFF373330),
+                  TavlaTheme.surfaceGray,
+                  TavlaTheme.surfaceGrayLight,
+                ],
                 stops: [0.0, 0.5, 0.85, 1.0],
               ),
               boxShadow: [
@@ -464,10 +473,11 @@ class BoardWidget extends StatelessWidget {
   /// The central vertical bar dividing the two halves, containing:
   /// - Bar pieces (captured pieces)
   /// - Dice display
-  Widget _buildCenterBar(BuildContext context) {
+  Widget _buildCenterBar(BuildContext context, double width) {
     final whiteBar = board.bar['W'] ?? 0;
     final blackBar = board.bar['B'] ?? 0;
     final isWhite = myColor == 'W';
+    final pieceSize = (width * 0.66).clamp(20.0, 28.0).toDouble();
 
     // Determine which bar pieces go on top vs bottom based on perspective
     final topBarCount = isWhite ? blackBar : whiteBar;
@@ -481,34 +491,31 @@ class BoardWidget extends StatelessWidget {
     return GestureDetector(
       onTap: onBarTap,
       child: Container(
-        width: 44,
+        width: width,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color(0xFF222224),
-              Color(0xFF2E2E30),
-              Color(0xFF3A3A3C),
-              Color(0xFF343436),
-              Color(0xFF2E2E30),
-              Color(0xFF222224),
+              TavlaTheme.boardFrameDark,
+              TavlaTheme.barWood,
+              TavlaTheme.barWoodLight,
+              TavlaTheme.barWood,
+              TavlaTheme.boardFrameDark,
             ],
-            stops: [0.0, 0.1, 0.35, 0.65, 0.9, 1.0],
+            stops: [0.0, 0.18, 0.5, 0.82, 1.0],
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 6,
+              color: Colors.black.withValues(alpha: 0.46),
+              blurRadius: 5,
               spreadRadius: -1,
             ),
-            // Left edge shadow
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 3,
               offset: const Offset(-2, 0),
             ),
-            // Right edge shadow
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 3,
@@ -533,7 +540,7 @@ class BoardWidget extends StatelessWidget {
                         count: (i == topBarCount.clamp(0, 3) - 1 && topBarCount > 3)
                             ? topBarCount
                             : 1,
-                        size: 28,
+                        size: pieceSize,
                       ),
                     ),
                   ),
@@ -543,7 +550,7 @@ class BoardWidget extends StatelessWidget {
             const Spacer(),
 
             // Dice area (centered in bar)
-            if (hasDice || isRolling) _buildDiceArea(isRolling),
+            if (hasDice || isRolling) _buildDiceArea(isRolling, width),
             if (!hasDice && !isRolling) _buildBarLabel(),
 
             const Spacer(),
@@ -563,7 +570,7 @@ class BoardWidget extends StatelessWidget {
                         count: (i == bottomBarCount.clamp(0, 3) - 1 && bottomBarCount > 3)
                             ? bottomBarCount
                             : 1,
-                        size: 28,
+                        size: pieceSize,
                       ),
                     ),
                   ),
@@ -590,8 +597,9 @@ class BoardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildDiceArea(bool isRolling) {
+  Widget _buildDiceArea(bool isRolling, double barWidth) {
     final remaining = remainingDice ?? [];
+    final diceSize = (barWidth * 0.82).clamp(28.0, 34.0).toDouble();
 
     return GestureDetector(
       onTap: isRolling ? onDiceTap : null,
@@ -611,7 +619,7 @@ class BoardWidget extends StatelessWidget {
                   child: DiceWidget(
                     value: entry.value,
                     used: used,
-                    size: 34,
+                    size: diceSize,
                   ),
                 );
               }),
@@ -693,15 +701,32 @@ class _TrianglePainter extends CustomPainter {
 
     final rect = path.getBounds();
     final gradient = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [color2, color1, color1, color2],
-      stops: const [0.0, 0.25, 0.75, 1.0],
+      begin: isTop ? Alignment.topCenter : Alignment.bottomCenter,
+      end: isTop ? Alignment.bottomCenter : Alignment.topCenter,
+      colors: [
+        _shiftColor(color2, 0.1),
+        color1,
+        _shiftColor(color1, -0.08),
+      ],
+      stops: const [0.0, 0.42, 1.0],
     );
     final paint = Paint()
       ..shader = gradient.createShader(rect)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paint);
+
+    final sideShade = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Colors.black.withValues(alpha: 0.1),
+          Colors.transparent,
+          Colors.white.withValues(alpha: 0.06),
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, sideShade);
 
     // Darker outline for depth
     final outlinePaint = Paint()
@@ -724,6 +749,26 @@ class _TrianglePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     canvas.drawPath(highlightPath, highlightPaint);
+
+    final shadowPath = Path();
+    if (isTop) {
+      shadowPath.moveTo(size.width * 0.72, size.height * 0.03);
+      shadowPath.lineTo(size.width / 2, triHeight * 0.9);
+    } else {
+      shadowPath.moveTo(size.width * 0.72, size.height * 0.97);
+      shadowPath.lineTo(size.width / 2, size.height - triHeight * 0.9);
+    }
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawPath(shadowPath, shadowPaint);
+  }
+
+  Color _shiftColor(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    final shiftedLightness = (hsl.lightness + amount).clamp(0.0, 1.0);
+    return hsl.withLightness(shiftedLightness).toColor();
   }
 
   @override

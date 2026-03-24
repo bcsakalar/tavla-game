@@ -146,12 +146,9 @@ class _DiceWidgetState extends State<DiceWidget> with TickerProviderStateMixin {
             stops: [0.0, 0.2, 0.5, 0.8, 1.0],
           ),
           borderRadius: BorderRadius.circular(widget.size * 0.18),
-          // Cube-edge border: lighter top-left, darker bottom-right
-          border: const Border(
-            top: BorderSide(color: Color(0xFFB8B0A0), width: 1.2),
-            left: BorderSide(color: Color(0xFFB8B0A0), width: 1.2),
-            bottom: BorderSide(color: Color(0xFF7A7268), width: 2.0),
-            right: BorderSide(color: Color(0xFF7A7268), width: 2.0),
+          border: Border.all(
+            color: const Color(0xFF9D927E),
+            width: 1.2,
           ),
           boxShadow: [
             // Main drop shadow
@@ -177,6 +174,13 @@ class _DiceWidgetState extends State<DiceWidget> with TickerProviderStateMixin {
         ),
         child: Stack(
           children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _DiceBevelPainter(widget.size * 0.18),
+                ),
+              ),
+            ),
             // Surface shine highlight
             Positioned(
               left: widget.size * 0.1,
@@ -206,6 +210,64 @@ class _DiceWidgetState extends State<DiceWidget> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+}
+
+class _DiceBevelPainter extends CustomPainter {
+  final double radius;
+
+  const _DiceBevelPainter(this.radius);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect.deflate(0.6), Radius.circular(radius));
+
+    final topLeftPaint = Paint()
+      ..color = const Color(0xFFD5CBAE).withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    final bottomRightPaint = Paint()
+      ..color = const Color(0xFF6E655C).withValues(alpha: 0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7;
+
+    final topLeftPath = Path()
+      ..moveTo(rrect.left + radius, rrect.top)
+      ..lineTo(rrect.right - radius, rrect.top)
+      ..arcToPoint(
+        Offset(rrect.right, rrect.top + radius),
+        radius: Radius.circular(radius),
+      )
+      ..moveTo(rrect.left, rrect.bottom - radius)
+      ..lineTo(rrect.left, rrect.top + radius)
+      ..arcToPoint(
+        Offset(rrect.left + radius, rrect.top),
+        radius: Radius.circular(radius),
+      );
+
+    final bottomRightPath = Path()
+      ..moveTo(rrect.left + radius, rrect.bottom)
+      ..lineTo(rrect.right - radius, rrect.bottom)
+      ..arcToPoint(
+        Offset(rrect.right, rrect.bottom - radius),
+        radius: Radius.circular(radius),
+      )
+      ..moveTo(rrect.right, rrect.top + radius)
+      ..lineTo(rrect.right, rrect.bottom - radius)
+      ..arcToPoint(
+        Offset(rrect.right - radius, rrect.bottom),
+        radius: Radius.circular(radius),
+      );
+
+    canvas.drawPath(topLeftPath, topLeftPaint);
+    canvas.drawPath(bottomRightPath, bottomRightPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DiceBevelPainter oldDelegate) {
+    return oldDelegate.radius != radius;
   }
 }
 

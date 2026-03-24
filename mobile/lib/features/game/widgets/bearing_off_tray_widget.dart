@@ -9,6 +9,7 @@ class BearingOffTrayWidget extends StatelessWidget {
   final int count; // borne-off count (0–15)
   final bool isActive; // true when bearing off is possible
   final bool isValidTarget; // true when this tray is a valid move target
+  final double width;
   final VoidCallback? onTap;
 
   const BearingOffTrayWidget({
@@ -17,27 +18,30 @@ class BearingOffTrayWidget extends StatelessWidget {
     required this.count,
     this.isActive = false,
     this.isValidTarget = false,
+    this.width = 38,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final badgeFontSize = (width * 0.28).clamp(10.0, 12.0).toDouble();
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        width: 44,
+        width: width,
         decoration: BoxDecoration(
           // Multi-layer gradient for recessed slot feel
           gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color(0xFF241408),
-              Color(0xFF2E1C10),
-              Color(0xFF382414),
-              Color(0xFF2E1C10),
-              Color(0xFF241408),
+              TavlaTheme.boardFrameDark,
+              TavlaTheme.boardFrame,
+              TavlaTheme.boardFrameLight,
+              TavlaTheme.boardFrame,
+              TavlaTheme.boardFrameDark,
             ],
             stops: [0.0, 0.15, 0.5, 0.85, 1.0],
           ),
@@ -127,7 +131,7 @@ class BearingOffTrayWidget extends StatelessWidget {
                       color: count > 0
                           ? TavlaTheme.gold
                           : TavlaTheme.cream.withValues(alpha: 0.3),
-                      fontSize: 12,
+                      fontSize: badgeFontSize,
                       fontWeight: FontWeight.w800,
                       shadows: count > 0
                           ? [
@@ -158,12 +162,14 @@ class BearingOffTrayWidget extends StatelessWidget {
   }
 
   Widget _buildPieceStack() {
+    final pieceSize = (width * 0.56).clamp(18.0, 24.0).toDouble();
+
     if (count == 0) {
       // Empty slot indicator
       return Center(
         child: Container(
-          width: 24,
-          height: 24,
+          width: pieceSize,
+          height: pieceSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
@@ -188,7 +194,7 @@ class BearingOffTrayWidget extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 0.5),
             child: PieceWidget(
               player: player,
-              size: 24,
+              size: pieceSize,
             ),
           ),
         ),

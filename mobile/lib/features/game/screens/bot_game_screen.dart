@@ -91,7 +91,7 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
             // Board (with integrated dice in center bar and bearing-off trays)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: EdgeInsets.symmetric(horizontal: _boardHorizontalPadding(context)),
                 child: BoardWidget(
                   board: game.snapshot!.board,
                   myColor: game.myColor ?? 'W',
@@ -314,6 +314,14 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
       }
     }
     return homeCount == 15;
+  }
+
+  double _boardHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < 360) return 2;
+    if (width < 430) return 4;
+    if (width < 520) return 8;
+    return 12;
   }
 
   Widget _buildActionBar(BuildContext context, GamePlayState game) {
