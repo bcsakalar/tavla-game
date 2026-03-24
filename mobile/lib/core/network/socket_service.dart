@@ -2,12 +2,20 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/app_config.dart';
 
+class _PendingEmit {
+  final String event;
+  final dynamic data;
+
+  const _PendingEmit(this.event, this.data);
+}
+
 class SocketService {
   io.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Buffer listeners registered before socket is connected
   final Map<String, List<Function(dynamic)>> _pendingListeners = {};
+  final List<_PendingEmit> _pendingEmits = [];
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -43,7 +51,10 @@ class SocketService {
     _pendingListeners.clear();
 
     _socket!.onConnect((_) {
-      // Connected
+      for (final pendingEmit in _pendingEmits) {
+        _socket?.emit(pendingEmit.event, pendingEmit.data);
+      }
+      _pendingEmits.clear();
     });
 
     _socket!.onDisconnect((_) {
@@ -60,11 +71,19 @@ class SocketService {
     _socket?.dispose();
     _socket = null;
     _pendingListeners.clear();
+    _pendingEmits.clear();
   }
 
   // Emit events
   void emit(String event, [dynamic data]) {
-    _socket?.emit(event, data);
+    if (_socket?.connected ?? false) {
+      _socket?.emit(event, data);
+      return;
+    }
+
+    if (_socket != null) {
+      _pendingEmits.add(_PendingEmit(event, data));
+    }
   }
 
   // Listen to events — buffers if socket not yet created

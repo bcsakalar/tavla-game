@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
@@ -59,8 +61,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final data = await _api.getProfile();
       final user = User.fromJson(data);
-      await _socket.connect();
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
+      unawaited(_connectSocketSafely());
     } catch (_) {
       await _storage.clearTokens();
       state = state.copyWith(status: AuthStatus.unauthenticated);
@@ -73,8 +75,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final data = await _api.login(identifier, password);
       await _storage.saveTokens(data['accessToken'], data['refreshToken']);
       final user = User.fromJson(data['user']);
-      await _socket.connect();
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
+      unawaited(_connectSocketSafely());
     } catch (e) {
       final message = _extractError(e);
       state = state.copyWith(status: AuthStatus.error, error: message);
@@ -87,8 +89,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final data = await _api.register(username, email, password);
       await _storage.saveTokens(data['accessToken'], data['refreshToken']);
       final user = User.fromJson(data['user']);
-      await _socket.connect();
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
+      unawaited(_connectSocketSafely());
     } catch (e) {
       final message = _extractError(e);
       state = state.copyWith(status: AuthStatus.error, error: message);
@@ -99,6 +101,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _socket.disconnect();
     await _storage.clearTokens();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  Future<void> _connectSocketSafely() async {
+    try {
+      await _socket.connect();
+    } catch (_) {}
   }
 
   String _extractError(dynamic e) {
