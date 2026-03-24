@@ -5,8 +5,8 @@ import '../providers/game_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../widgets/board_widget.dart';
-import '../widgets/dice_widget.dart';
 import '../widgets/timer_widget.dart';
+import '../widgets/player_profile_popup.dart';
 import '../../../core/theme/tavla_theme.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
@@ -93,16 +93,20 @@ class _GameScreenState extends ConsumerState<GameScreen>
             if (game.lastEmoji != null)
               _buildEmojiOverlay(game.lastEmoji!),
 
-            // Board
+            // Board (with integrated dice in center bar and bearing-off trays)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: BoardWidget(
                   board: game.snapshot!.board,
                   myColor: game.myColor ?? 'W',
                   selectedPoint: game.selectedPoint,
                   isMyTurn: game.isMyTurn,
                   showPointNumbers: settings.pointNumbersEnabled,
+                  dice: game.snapshot!.dice,
+                  remainingDice: game.snapshot!.remainingDice,
+                  turnPhase: game.snapshot!.turnPhase,
+                  canBearOff: _canBearOff(game),
                   validMoveTargets: game.isMyTurn
                       ? (game.selectedPoint != null
                           ? game.validMoveTargets
@@ -131,39 +135,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     }
                   },
                   onBarTap: () {},
+                  onDiceTap: game.isMyTurn && game.snapshot!.turnPhase == 'rolling'
+                      ? () => ref.read(gameProvider.notifier).rollDice()
+                      : null,
+                  onBearOffTap: game.isMyTurn && game.selectedPoint != null
+                      ? () => ref.read(gameProvider.notifier).bearOff(game.selectedPoint!)
+                      : null,
                 ),
               ),
             ),
-
-            // Dice area
-            if (game.snapshot!.dice != null && game.snapshot!.dice!.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.0),
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.5),
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: game.snapshot!.dice!.asMap().entries.map((entry) {
-                    final remaining = game.snapshot!.remainingDice ?? [];
-                    final used = !remaining.contains(entry.value);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: DiceWidget(
-                        value: entry.value,
-                        used: used,
-                        size: 48,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
 
             // Bottom bar — my info + action buttons
             _buildPlayerBar(
@@ -253,25 +233,32 @@ class _GameScreenState extends ConsumerState<GameScreen>
       ),
       child: Row(
         children: [
-          // Player avatar with ring
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isCurrentTurn ? TavlaTheme.gold : Colors.transparent,
-                width: 2,
+          // Player avatar with ring — tappable for profile
+          GestureDetector(
+            onTap: () {
+              if (isOpponent && game.opponentUserId != null) {
+                PlayerProfilePopup.show(context, ref, game.opponentUserId!);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isCurrentTurn ? TavlaTheme.gold : Colors.transparent,
+                  width: 2,
+                ),
               ),
-            ),
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor: isOpponent
-                  ? TavlaTheme.blackPiece
-                  : TavlaTheme.whitePiece,
-              child: Icon(
-                Icons.person,
-                size: 16,
-                color: isOpponent ? Colors.white : TavlaTheme.darkBrown,
+              child: CircleAvatar(
+                radius: 14,
+                backgroundColor: isOpponent
+                    ? TavlaTheme.blackPiece
+                    : TavlaTheme.whitePiece,
+                child: Icon(
+                  Icons.person,
+                  size: 16,
+                  color: isOpponent ? Colors.white : TavlaTheme.darkBrown,
+                ),
               ),
             ),
           ),
@@ -282,7 +269,9 @@ class _GameScreenState extends ConsumerState<GameScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                isOpponent ? 'Rakip' : (auth.user?.username ?? ''),
+                isOpponent
+                    ? (game.opponentUsername ?? 'Rakip')
+                    : (auth.user?.username ?? ''),
                 style: TextStyle(
                   color: TavlaTheme.cream,
                   fontWeight: FontWeight.bold,
@@ -354,6 +343,27 @@ class _GameScreenState extends ConsumerState<GameScreen>
     return game.snapshot?.board.borneOff[color] ?? 0;
   }
 
+  bool _canBearOff(GamePlayState game) {
+    if (game.snapshot == null || game.myColor == null) return false;
+    final board = game.snapshot!.board;
+    final myColor = game.myColor!;
+    // Check if all 15 pieces are in home board (points 0-5 for W, 18-23 for B)
+    final bar = board.bar[myColor] ?? 0;
+    if (bar > 0) return false;
+    final borneOff = board.borneOff[myColor] ?? 0;
+    int homeCount = borneOff;
+    if (myColor == 'W') {
+      for (int i = 0; i < 6; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    } else {
+      for (int i = 18; i < 24; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    }
+    return homeCount == 15;
+  }
+
   Widget _buildActionBar(BuildContext context, GamePlayState game) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -373,20 +383,29 @@ class _GameScreenState extends ConsumerState<GameScreen>
       ),
       child: Row(
         children: [
-          // Roll dice button
+          // Roll dice hint (encourage tapping dice in bar)
           if (game.isMyTurn && game.snapshot?.turnPhase == 'rolling')
-            ElevatedButton.icon(
-              onPressed: () => ref.read(gameProvider.notifier).rollDice(),
-              icon: const Icon(Icons.casino, size: 18),
-              label: const Text('Zar At', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TavlaTheme.gold,
-                foregroundColor: TavlaTheme.darkBrown,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 4,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: TavlaTheme.gold.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: TavlaTheme.gold.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.touch_app, size: 16, color: Color(0xCCD4A76A)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Zara Dokun',
+                    style: TextStyle(
+                      color: TavlaTheme.gold,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
 

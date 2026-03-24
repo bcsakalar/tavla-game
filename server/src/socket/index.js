@@ -4,16 +4,20 @@
  */
 
 const { socketAuth } = require('./middleware/auth');
+const { socketRateLimitMiddleware } = require('./middleware/rateLimiter');
 const { lobbyHandler } = require('./handlers/lobby');
 const { gameHandler } = require('./handlers/game');
 const { botHandler } = require('./handlers/bot');
+const logger = require('../utils/logger');
 
 function initSocket(io) {
   // Authentication middleware
   io.use(socketAuth);
+  // Rate limiting middleware
+  io.use(socketRateLimitMiddleware);
 
   io.on('connection', (socket) => {
-    console.warn(`[Socket] Bağlandı: ${socket.user.username} (${socket.id})`);
+    logger.info('Socket', `Bağlandı: ${socket.user.username} (${socket.id})`);
 
     // Register handlers
     lobbyHandler(io, socket);
@@ -21,7 +25,7 @@ function initSocket(io) {
     botHandler(io, socket);
 
     socket.on('disconnect', (reason) => {
-      console.warn(`[Socket] Ayrıldı: ${socket.user.username} - ${reason}`);
+      logger.info('Socket', `Ayrıldı: ${socket.user.username} - ${reason}`);
     });
   });
 }

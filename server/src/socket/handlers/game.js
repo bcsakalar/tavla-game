@@ -20,17 +20,56 @@ const { serializeBoard } = require('../../game/board');
 const { calculateEloChange } = require('../../game/scoring');
 const gameService = require('../../services/gameService');
 const userService = require('../../services/userService');
-const { activeGames, playerGames } = require('./lobby');
+const {  activeGames, playerGames } = require('./lobby');
 const config = require('../../config');
+const logger = require('../../utils/logger');
+const { ALLOWED_EMOJIS, CHAT_MESSAGE_MAX_LENGTH } = require('../../config/constants');
+const stateStore = require('../../game/stateStore');
 
 // Turn timers: Map<gameId, timeoutId>
 const turnTimers = new Map();
+
+// Disconnect timers: Map<`${gameId}:${userId}`, timeoutId>
+const disconnectTimers = new Map();
+
+/**
+ * Validate incoming move data from client.
+ * Returns sanitised { from, to, dieValue } or null if invalid.
+ */
+function validateMoveData(data) {
+  if (!data || typeof data !== 'object') return null;
+
+  const from = data.from;
+  const to = data.to;
+
+  // from: integer 0-23 or 'bar'
+  const validFrom =
+    from === 'bar' || (Number.isInteger(from) && from >= 0 && from <= 23);
+  // to: integer 0-23 or 'off'
+  const validTo =
+    to === 'off' || (Number.isInteger(to) && to >= 0 && to <= 23);
+
+  if (!validFrom || !validTo) return null;
+
+  // dieValue is optional (can be calculated), but if present must be 1-6
+  let dieValue = data.dieValue;
+  if (dieValue !== undefined && dieValue !== null) {
+    dieValue = Number(dieValue);
+    if (!Number.isInteger(dieValue) || dieValue < 1 || dieValue > 6) return null;
+  } else {
+    dieValue = undefined;
+  }
+
+  return { from, to, dieValue };
+}
 
 function gameHandler(io, socket) {
   const userId = socket.user.id;
 
   // Roll dice
   socket.on('game:rollDice', () => {
+    if (!socket.rateLimitCheck('game:rollDice')) return;
+
     const gameId = playerGames.get(userId);
     if (!gameId) return socket.emit('game:error', { message: 'Aktif oyun yok' });
 
@@ -69,6 +108,11 @@ function gameHandler(io, socket) {
 
   // Make a move
   socket.on('game:move', (moveData) => {
+    if (!socket.rateLimitCheck('game:move')) return;
+
+    const validated = validateMoveData(moveData);
+    if (!validated) return socket.emit('game:error', { message: 'Geçersiz hamle verisi' });
+
     const gameId = playerGames.get(userId);
     if (!gameId) return socket.emit('game:error', { message: 'Aktif oyun yok' });
 
@@ -79,22 +123,22 @@ function gameHandler(io, socket) {
     if (!color) return;
 
     // Calculate dieValue from coordinates if not provided
-    let dieValue = moveData.dieValue;
-    if (dieValue === undefined || dieValue === null) {
-      if (moveData.from === 'bar') {
-        dieValue = color === 'W' ? (24 - moveData.to) : (moveData.to + 1);
-      } else if (moveData.to === 'off') {
-        dieValue = color === 'W' ? (moveData.from + 1) : (24 - moveData.from);
+    let dieValue = validated.dieValue;
+    if (dieValue === undefined) {
+      if (validated.from === 'bar') {
+        dieValue = color === 'W' ? (24 - validated.to) : (validated.to + 1);
+      } else if (validated.to === 'off') {
+        dieValue = color === 'W' ? (validated.from + 1) : (24 - validated.from);
       } else {
-        dieValue = color === 'W' ? (moveData.from - moveData.to) : (moveData.to - moveData.from);
+        dieValue = color === 'W' ? (validated.from - validated.to) : (validated.to - validated.from);
       }
     }
 
     const move = {
-      from: moveData.from,
-      to: moveData.to,
+      from: validated.from,
+      to: validated.to,
       dieValue,
-      isHit: false, // Will be determined by the engine
+      isHit: false,
     };
 
     // Determine if it's a hit
@@ -183,6 +227,8 @@ function gameHandler(io, socket) {
 
   // Chat
   socket.on('game:chat', async (data) => {
+    if (!socket.rateLimitCheck('game:chat')) return;
+
     const gameId = playerGames.get(userId);
     if (!gameId) return;
 
@@ -199,7 +245,7 @@ function gameHandler(io, socket) {
         timestamp: new Date(),
       });
     } catch (err) {
-      console.error('[Chat] Error:', err.message);
+      logger.error('Chat', 'Message save failed', err);
     }
   });
 
@@ -213,6 +259,14 @@ function gameHandler(io, socket) {
     const game = activeGames.get(gameId);
     if (!game || game.state === GameState.FINISHED) {
       return socket.emit('game:noActiveGame');
+    }
+
+    // Cancel pending disconnect timer
+    const dcKey = `${gameId}:${userId}`;
+    const dcTimer = disconnectTimers.get(dcKey);
+    if (dcTimer) {
+      clearTimeout(dcTimer);
+      disconnectTimers.delete(dcKey);
     }
 
     const roomName = `game:${gameId}`;
@@ -249,15 +303,16 @@ function gameHandler(io, socket) {
 
   // Emoji reactions
   socket.on('game:emoji', (data) => {
+    if (!socket.rateLimitCheck('game:emoji')) return;
+
     const gameId = playerGames.get(userId);
     if (!gameId) return;
 
     const game = activeGames.get(gameId);
     if (!game) return;
 
-    const allowedEmojis = ['👍', '😂', '😮', '😡', '🎉', '🤔'];
     const emoji = typeof data?.emoji === 'string' ? data.emoji : '';
-    if (!allowedEmojis.includes(emoji)) return;
+    if (!ALLOWED_EMOJIS.includes(emoji)) return;
 
     const color = getPlayerColor(game, userId);
     const roomName = `game:${gameId}`;
@@ -278,18 +333,10 @@ function gameHandler(io, socket) {
     const roomName = `game:${gameId}`;
     io.to(roomName).emit('game:playerDisconnected', { userId });
 
-    // Give time to reconnect
-    setTimeout(() => {
-      // Check if player reconnected
-      const sockets = io.sockets.adapter.rooms.get(roomName);
-      if (sockets) {
-        for (const sid of sockets) {
-          const s = io.sockets.sockets.get(sid);
-          if (s && s.user && s.user.id === userId) {
-            return; // Player reconnected
-          }
-        }
-      }
+    // Store disconnect timer so reconnect can cancel it
+    const dcKey = `${gameId}:${userId}`;
+    const timerId = setTimeout(() => {
+      disconnectTimers.delete(dcKey);
 
       // Player did not reconnect
       if (game.state === GameState.PLAYING) {
@@ -304,6 +351,8 @@ function gameHandler(io, socket) {
         }
       }
     }, config.game.reconnectWindowSeconds * 1000);
+
+    disconnectTimers.set(dcKey, timerId);
   });
 }
 
@@ -403,7 +452,7 @@ async function handleGameEnd(io, gameId, game, result) {
       snapshot: getGameSnapshot(game),
     });
   } catch (err) {
-    console.error('[GameEnd] Error:', err.message);
+    logger.error('GameEnd', 'Error saving game result', err);
     io.to(roomName).emit('game:finished', {
       winner: result.winner,
       resultType: result.resultType,
@@ -415,6 +464,11 @@ async function handleGameEnd(io, gameId, game, result) {
   playerGames.delete(game.whitePlayerId);
   playerGames.delete(game.blackPlayerId);
   activeGames.delete(gameId);
+
+  // Clean up Redis state
+  stateStore.deleteGame(gameId);
+  stateStore.deletePlayerGame(game.whitePlayerId);
+  stateStore.deletePlayerGame(game.blackPlayerId);
 }
 
-module.exports = { gameHandler };
+module.exports = { gameHandler, validateMoveData };

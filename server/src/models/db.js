@@ -1,11 +1,12 @@
 const { Pool } = require('pg');
 const config = require('../config');
+const logger = require('../utils/logger');
 
 const pool = new Pool(config.db);
 
 pool.on('error', (err) => {
-  console.error('Unexpected database pool error', err);
-  process.exit(-1);
+  logger.error('DB', 'Unexpected database pool error', err);
+  // Do NOT process.exit — pool will recover automatically
 });
 
 module.exports = {

@@ -34,6 +34,11 @@ const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   },
+
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    keyPrefix: 'tavla:',
+  },
 };
 
 module.exports = config;

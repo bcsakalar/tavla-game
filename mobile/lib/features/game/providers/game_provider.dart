@@ -56,6 +56,10 @@ class GamePlayState {
   final String? errorMessage;
   final int? botMoveFrom;
   final int? botMoveTo;
+  final String? opponentUsername;
+  final int? opponentUserId;
+  final int? opponentElo;
+  final bool animatingBotMove;
 
   const GamePlayState({
     this.phase = GamePhase.loading,
@@ -75,6 +79,10 @@ class GamePlayState {
     this.errorMessage,
     this.botMoveFrom,
     this.botMoveTo,
+    this.opponentUsername,
+    this.opponentUserId,
+    this.opponentElo,
+    this.animatingBotMove = false,
   });
 
   bool get isMyTurn => snapshot?.currentTurn == myColor;
@@ -97,6 +105,10 @@ class GamePlayState {
     String? Function()? errorMessage,
     int? Function()? botMoveFrom,
     int? Function()? botMoveTo,
+    String? Function()? opponentUsername,
+    int? Function()? opponentUserId,
+    int? Function()? opponentElo,
+    bool? animatingBotMove,
   }) {
     return GamePlayState(
       phase: phase ?? this.phase,
@@ -116,6 +128,10 @@ class GamePlayState {
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
       botMoveFrom: botMoveFrom != null ? botMoveFrom() : this.botMoveFrom,
       botMoveTo: botMoveTo != null ? botMoveTo() : this.botMoveTo,
+      opponentUsername: opponentUsername != null ? opponentUsername() : this.opponentUsername,
+      opponentUserId: opponentUserId != null ? opponentUserId() : this.opponentUserId,
+      opponentElo: opponentElo != null ? opponentElo() : this.opponentElo,
+      animatingBotMove: animatingBotMove ?? this.animatingBotMove,
     );
   }
 }
@@ -136,6 +152,11 @@ class GameNotifier extends StateNotifier<GamePlayState> {
     final myColor = snapshot.whitePlayerId == myUserId.toString() ? 'W' : 'B';
     const timerMax = AppConfig.moveTimerSeconds;
 
+    // Extract opponent info from match data
+    final whiteData = gameData['white'] as Map<String, dynamic>?;
+    final blackData = gameData['black'] as Map<String, dynamic>?;
+    final opponentData = myColor == 'W' ? blackData : whiteData;
+
     final phase = snapshot.state == 'initial_roll'
         ? GamePhase.initialRoll
         : snapshot.state == 'finished'
@@ -148,6 +169,13 @@ class GameNotifier extends StateNotifier<GamePlayState> {
       myColor: myColor,
       maxTimer: timerMax,
       turnTimer: timerMax,
+      opponentUsername: () => opponentData?['username']?.toString(),
+      opponentUserId: () => opponentData?['userId'] != null
+          ? int.tryParse(opponentData!['userId'].toString())
+          : null,
+      opponentElo: () => opponentData?['elo'] != null
+          ? int.tryParse(opponentData!['elo'].toString())
+          : null,
     );
 
     if (snapshot.currentTurn == myColor) {
@@ -352,6 +380,7 @@ class GameNotifier extends StateNotifier<GamePlayState> {
     final remaining = snapshot.remainingDice;
     if (remaining == null || remaining.isEmpty) return {};
 
+    final bearOffAllowed = _canBearOff(snapshot, myColor);
     final targets = <int>{};
     final usedDice = <int>{};
 
@@ -366,22 +395,38 @@ class GameNotifier extends StateNotifier<GamePlayState> {
         targetIndex = fromPoint + die;
       }
 
-      // Bear off
       if (targetIndex < 0 || targetIndex >= 24) {
-        targets.add(-1); // Special: bear off
+        if (bearOffAllowed) targets.add(-1);
         continue;
       }
 
-      // Check if target is open (not blocked by 2+ opponent pieces)
       final targetPoint = snapshot.board.points[targetIndex];
       final opponentColor = myColor == 'W' ? 'B' : 'W';
       if (targetPoint.player == opponentColor && targetPoint.count >= 2) {
-        continue; // Blocked
+        continue;
       }
 
       targets.add(targetIndex);
     }
     return targets;
+  }
+
+  bool _canBearOff(GameSnapshot snapshot, String myColor) {
+    final board = snapshot.board;
+    final bar = board.bar[myColor] ?? 0;
+    if (bar > 0) return false;
+    final borneOff = board.borneOff[myColor] ?? 0;
+    int homeCount = borneOff;
+    if (myColor == 'W') {
+      for (int i = 0; i < 6; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    } else {
+      for (int i = 18; i < 24; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    }
+    return homeCount == 15;
   }
 
   Set<int> computeBarTargets() {

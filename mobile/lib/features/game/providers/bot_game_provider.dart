@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/socket_service.dart';
 import '../../../core/audio/audio_manager.dart';
@@ -15,6 +16,7 @@ final botGameProvider =
 class BotGameNotifier extends StateNotifier<GamePlayState> {
   final SocketService _socket;
   final AudioManager _audio = AudioManager();
+  Timer? _botAnimTimer;
 
   BotGameNotifier(this._socket) : super(const GamePlayState(isBotGame: true)) {
     _setupListeners();
@@ -93,15 +95,48 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
         if (toVal is int) moveTo = toVal;
       }
 
-      state = state.copyWith(
-        snapshot: snapshot,
-        selectedPoint: () => null,
-        validMoves: [],
-        validMoveTargets: {},
-        canUndo: !isBot && snapshot.currentTurn == state.myColor,
-        botMoveFrom: () => moveFrom,
-        botMoveTo: () => moveTo,
-      );
+      if (isBot && (moveFrom != null || moveTo != null)) {
+        // Phase 1: Show bot move highlight BEFORE updating board
+        _botAnimTimer?.cancel();
+        state = state.copyWith(
+          botMoveFrom: () => moveFrom,
+          botMoveTo: () => moveTo,
+          animatingBotMove: true,
+        );
+
+        // Phase 2: After delay, update board state
+        _botAnimTimer = Timer(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          state = state.copyWith(
+            snapshot: snapshot,
+            selectedPoint: () => null,
+            validMoves: [],
+            validMoveTargets: {},
+            canUndo: false,
+            animatingBotMove: false,
+          );
+
+          // Phase 3: Clear highlight after another short delay
+          _botAnimTimer = Timer(const Duration(milliseconds: 300), () {
+            if (!mounted) return;
+            state = state.copyWith(
+              botMoveFrom: () => null,
+              botMoveTo: () => null,
+            );
+          });
+        });
+      } else {
+        // Player's own move — update immediately
+        state = state.copyWith(
+          snapshot: snapshot,
+          selectedPoint: () => null,
+          validMoves: [],
+          validMoveTargets: {},
+          canUndo: !isBot && snapshot.currentTurn == state.myColor,
+          botMoveFrom: () => moveFrom,
+          botMoveTo: () => moveTo,
+        );
+      }
     });
 
     _socket.on('bot:moveUndone', (data) {
@@ -216,6 +251,7 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
     final remaining = snapshot.remainingDice;
     if (remaining == null || remaining.isEmpty) return {};
 
+    final bearOffAllowed = _canBearOff(snapshot, myColor);
     final targets = <int>{};
     final usedDice = <int>{};
 
@@ -231,7 +267,7 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
       }
 
       if (targetIndex < 0 || targetIndex >= 24) {
-        targets.add(-1);
+        if (bearOffAllowed) targets.add(-1);
         continue;
       }
 
@@ -243,6 +279,24 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
       targets.add(targetIndex);
     }
     return targets;
+  }
+
+  bool _canBearOff(GameSnapshot snapshot, String myColor) {
+    final board = snapshot.board;
+    final bar = board.bar[myColor] ?? 0;
+    if (bar > 0) return false;
+    final borneOff = board.borneOff[myColor] ?? 0;
+    int homeCount = borneOff;
+    if (myColor == 'W') {
+      for (int i = 0; i < 6; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    } else {
+      for (int i = 18; i < 24; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    }
+    return homeCount == 15;
   }
 
   Set<int> computeBarTargets() {
@@ -381,6 +435,7 @@ class BotGameNotifier extends StateNotifier<GamePlayState> {
 
   @override
   void dispose() {
+    _botAnimTimer?.cancel();
     _socket.off('bot:gameStarted');
     _socket.off('bot:diceRolled');
     _socket.off('game:error');

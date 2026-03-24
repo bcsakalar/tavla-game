@@ -3,6 +3,12 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const db = require('../../models/db');
 const { adminAuth } = require('../../middleware/auth');
+const { adminLoginLimiter } = require('../../middleware/rateLimiter');
+const { csrfToken, csrfProtection } = require('../../middleware/csrf');
+const logger = require('../../utils/logger');
+
+// Attach CSRF token to all admin requests
+router.use(csrfToken);
 
 // GET /admin/login
 router.get('/login', (req, res) => {
@@ -11,7 +17,7 @@ router.get('/login', (req, res) => {
 });
 
 // POST /admin/login
-router.post('/login', async (req, res) => {
+router.post('/login', adminLoginLimiter, csrfProtection, async (req, res) => {
   try {
     const { username, password } = req.body;
     const result = await db.query(
@@ -33,7 +39,7 @@ router.post('/login', async (req, res) => {
     req.session.admin = { id: admin.id, username: admin.username };
     res.redirect('/admin');
   } catch (err) {
-    console.error('[Admin] Login error:', err.message);
+    logger.error('Admin', 'Login error', err);
     res.render('admin/login', { error: 'Sunucu hatası' });
   }
 });
@@ -69,7 +75,7 @@ router.get('/', async (req, res) => {
 
     res.render('admin/dashboard', { admin: req.session.admin, stats, page: 'dashboard' });
   } catch (err) {
-    console.error('[Admin] Dashboard error:', err.message);
+    logger.error('Admin', 'Dashboard error', err);
     res.render('admin/dashboard', { admin: req.session.admin, stats: {}, page: 'dashboard' });
   }
 });
@@ -113,19 +119,19 @@ router.get('/users', async (req, res) => {
       search,
     });
   } catch (err) {
-    console.error('[Admin] Users error:', err.message);
+    logger.error('Admin', 'Users error', err);
     res.render('admin/users', { admin: req.session.admin, users: [], page: 'users', currentPage: 1, totalPages: 1, search: '' });
   }
 });
 
 // POST /admin/users/:id/ban
-router.post('/users/:id/ban', async (req, res) => {
+router.post('/users/:id/ban', csrfProtection, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
     await db.query('UPDATE users SET is_banned = NOT is_banned WHERE id = $1', [userId]);
     res.redirect('/admin/users');
   } catch (err) {
-    console.error('[Admin] Ban error:', err.message);
+    logger.error('Admin', 'Ban error', err);
     res.redirect('/admin/users');
   }
 });
@@ -163,7 +169,7 @@ router.get('/games', async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
-    console.error('[Admin] Games error:', err.message);
+    logger.error('Admin', 'Games error', err);
     res.render('admin/games', { admin: req.session.admin, games: [], page: 'games', currentPage: 1, totalPages: 1 });
   }
 });
@@ -188,13 +194,13 @@ router.get('/reports', async (req, res) => {
       page: 'reports',
     });
   } catch (err) {
-    console.error('[Admin] Reports error:', err.message);
+    logger.error('Admin', 'Reports error', err);
     res.render('admin/reports', { admin: req.session.admin, reports: [], page: 'reports' });
   }
 });
 
 // POST /admin/reports/:id/resolve
-router.post('/reports/:id/resolve', async (req, res) => {
+router.post('/reports/:id/resolve', csrfProtection, async (req, res) => {
   try {
     const reportId = parseInt(req.params.id, 10);
     const { admin_note } = req.body;
@@ -204,7 +210,7 @@ router.post('/reports/:id/resolve', async (req, res) => {
     );
     res.redirect('/admin/reports');
   } catch (err) {
-    console.error('[Admin] Resolve error:', err.message);
+    logger.error('Admin', 'Resolve error', err);
     res.redirect('/admin/reports');
   }
 });

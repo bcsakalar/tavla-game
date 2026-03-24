@@ -63,7 +63,9 @@ Tavla Online, klasik Türk tavla oyununu çevrimiçi ortama taşıyan full-stack
 | **Express.js** | 4.21 | REST API framework |
 | **Socket.IO** | 4.8 | Gerçek zamanlı WebSocket iletişim |
 | **PostgreSQL** | 16 | İlişkisel veritabanı |
+| **Redis** | 7 | Oyun state persistence + cache |
 | **node-postgres (pg)** | 8.13 | Veritabanı driver |
+| **ioredis** | 5.4 | Redis client |
 | **JWT** | 9.0 | Token tabanlı kimlik doğrulama |
 | **bcrypt** | 5.1 | Şifre hashleme (12 round) |
 | **Helmet** | 7.1 | HTTP güvenlik başlıkları |
@@ -88,7 +90,8 @@ Tavla Online, klasik Türk tavla oyununu çevrimiçi ortama taşıyan full-stack
 | Teknoloji | Amaç |
 |-----------|------|
 | **Docker** | Konteynerizasyon (multi-stage build) |
-| **Docker Compose** | Servis orkestrasyonu |
+| **Docker Compose** | Servis orkestrasyon (Server + DB + Redis + Nginx) |
+| **Redis** | Aktif oyun state persistence (sunucu çökümü koruması) |
 | **Nginx** | Reverse proxy + WebSocket desteği |
 
 ---
@@ -130,11 +133,11 @@ Tavla Online, klasik Türk tavla oyununu çevrimiçi ortama taşıyan full-stack
 │    │       │  Bot AI   │      │                          │
 │    │       └───────────┘      │                          │
 │    └──────────────────────────┘                          │
-│                    │                                      │
-│              ┌─────▼─────┐                                │
-│              │ PostgreSQL │                                │
-│              │   (pg)     │                                │
-│              └───────────┘                                │
+│              │                    │                       │
+│        ┌─────▼─────┐       ┌─────▼─────┐                │
+│        │ PostgreSQL │       │   Redis   │                │
+│        │   (pg)     │       │  (ioredis)│                │
+│        └───────────┘       └───────────┘                │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -192,14 +195,20 @@ lib/
 - **JWT Authentication** — 15 dakikalık access token + 7 günlük refresh token
 - **bcrypt** — 12 round şifre hashleme
 - **Helmet.js** — HTTP güvenlik başlıkları
-- **Rate Limiting** — API: 100 req/15min, Auth: 20 req/15min
-- **Input Validation** — Tüm girdiler sunucu tarafında doğrulanır
+- **Rate Limiting** — API: 100 req/15min, Auth: 20 req/15min, Admin Login: 5 req/15min
+- **Socket Rate Limiting** — Hamle: 30/10s, Chat: 10/10s, Emoji: 20/10s
+- **CSRF Koruması** — Admin panel formlarında session-based CSRF token
+- **Input Validation** — Tüm girdiler sunucu tarafında doğrulanır (hamle, avatar URL, chat)
+- **Structured Logging** — Yaplandırılmış loglama, request ID izleme
+- **Graceful Shutdown** — SIGTERM/SIGINT, aktif oyunları Redis'e kaydet, bağlantıları kapat
+- **Redis Persistence** — Aktif oyunlar Redis'e persist edilir, sunucu çökmesinde kurtarma
 
 ### 🛡 Admin Panel
 - **Dashboard** — Genel istatistikler ve günlük oyun sayıları
 - **Kullanıcı Yönetimi** — Kullanıcı arama, profil görüntüleme
 - **Rapor Sistemi** — Oyuncu raporları yönetimi
 - **Session Tabanlı Auth** — `express-session` + `connect-pg-simple`
+- **CSRF Koruması** — Admin formlarında session-based CSRF token doğrulaması
 
 ### 📱 Mobil (Flutter)
 - **Cross-Platform** — Android, iOS, Web desteği
@@ -499,10 +508,14 @@ tavla-game/
 │   │   ├── index.js                 # Sunucu giriş noktası
 │   │   ├── config/
 │   │   │   └── index.js             # Ortam değişkenleri yapılandırma
+│   │   │   └── redis.js             # Redis bağlantısı (ioredis)
+│   │   │   └── constants.js         # Paylaşılan sabitler
 │   │   ├── middleware/
 │   │   │   ├── auth.js              # JWT doğrulama, token üretimi
-│   │   │   ├── rateLimiter.js       # İstek hız sınırlama
-│   │   │   └── errorHandler.js      # Merkezi hata yakalama
+│   │   │   ├── rateLimiter.js       # İstek hız sınırlama (API + Auth + Admin)
+│   │   │   ├── errorHandler.js      # Merkezi hata yakalama
+│   │   │   ├── requestId.js         # Her istek için benzersiz UUID
+│   │   │   └── csrf.js              # Admin CSRF koruması
 │   │   ├── models/
 │   │   │   ├── db.js                # PostgreSQL bağlantı havuzu
 │   │   │   ├── migrate.js           # Veritabanı şeması oluşturma
@@ -516,7 +529,8 @@ tavla-game/
 │   │   │   ├── moves.js             # Hamle doğrulama ve sıralama
 │   │   │   ├── dice.js              # Kriptografik zar (crypto.randomInt)
 │   │   │   ├── scoring.js           # ELO hesaplama
-│   │   │   └── bot.js               # Yapay zeka rakip
+│   │   │   ├── bot.js               # Yapay zeka rakip
+│   │   │   └── stateStore.js        # Redis oyun state persistence
 │   │   ├── routes/
 │   │   │   ├── api/                 # REST API rotaları
 │   │   │   │   ├── auth.js          # /api/auth/*
@@ -528,11 +542,15 @@ tavla-game/
 │   │   ├── socket/
 │   │   │   ├── index.js             # Socket.IO başlatma
 │   │   │   ├── middleware/
-│   │   │   │   └── auth.js          # Socket JWT doğrulama
+│   │   │   │   ├── auth.js          # Socket JWT doğrulama
+│   │   │   │   └── rateLimiter.js   # Socket event rate limiting
 │   │   │   └── handlers/
 │   │   │       ├── lobby.js         # Eşleştirme kuyruğu
 │   │   │       ├── game.js          # Oyun olayları
 │   │   │       └── bot.js           # Bot oyun olayları
+│   │   ├── utils/
+│   │   │   ├── logger.js            # Yapılandırılmış loglama
+│   │   │   └── AppError.js          # Özel hata sınıfı
 │   │   └── views/                   # EJS admin şablonları
 │   ├── tests/                       # Jest test dosyaları
 │   ├── public/                      # Statik dosyalar (admin CSS/JS)
@@ -604,9 +622,10 @@ npm run test:watch
 ```
 
 **Test kapsamı:**
-- **Unit testler**: Oyun motoru (board, moves, dice, scoring, engine)
+- **Unit testler**: Oyun motoru (board, moves, dice, scoring, engine) + güvenlik/altyapı (logger, AppError, CSRF, rate limiter, request ID, constants, move validation)
 - **Integration testler**: API endpoint'leri (auth, users, games, leaderboard)
 - **Test framework**: Jest + Supertest + fixtures
+- **Toplam**: 12 suite, 118 test
 
 ---
 
@@ -635,13 +654,15 @@ docker exec tavla-server node src/models/seed.js
 | **Nginx** | 80 | Reverse proxy + WebSocket |
 | **Server** | 3000 (internal) | Express + Socket.IO |
 | **PostgreSQL** | 5432 (internal) | Veritabanı |
+| **Redis** | 6379 (internal) | Oyun state persistence |
 
 ### Production Checklist
 
 - [ ] `.env` dosyasında güçlü, rastgele secret'lar kullanın
-- [ ] Admin şifresini `admin123456`'dan değiştirin
+- [ ] `ADMIN_PASSWORD` env var ile admin şifresini belirleyin
 - [ ] `CORS_ORIGIN`'i gerçek domain ile sınırlayın
 - [ ] HTTPS (SSL/TLS) yapılandırın
+- [ ] Redis bağlantısını doğrulayın
 - [ ] Veritabanı backup stratejisi oluşturun
 - [ ] Log toplama sistemi kurun
 
@@ -671,7 +692,7 @@ Made with ❤️ by [bcsakalar](https://github.com/bcsakalar)
 
 </div>
 │   ├── docker-compose.yml   # Üretim
-│   ├── docker-compose.dev.yml # Geliştirme
+│   ├── docker-compose.dev.yml # Geliştirme (+ Redis)
 │   └── nginx/nginx.conf     # Reverse proxy
 │
 ├── .github/workflows/       # CI/CD
@@ -694,6 +715,8 @@ npm test -- --coverage # Kapsam raporu ile
 ```
 
 75 birim testi: board, dice, moves, engine, scoring modülleri.
+
+118 toplam test (12 suite): game engine + güvenlik/altyapı (logger, AppError, CSRF, rate limiter, request ID, move validation, constants).
 
 ## Docker ile Üretim Dağıtımı
 

@@ -5,109 +5,204 @@ class DiceWidget extends StatefulWidget {
   final int value;
   final bool used;
   final double size;
+  final bool isRolling;
 
   const DiceWidget({
     super.key,
     required this.value,
     this.used = false,
     this.size = 48,
+    this.isRolling = false,
   });
 
   @override
   State<DiceWidget> createState() => _DiceWidgetState();
 }
 
-class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _rotation;
+class _DiceWidgetState extends State<DiceWidget> with TickerProviderStateMixin {
+  late AnimationController _rollController;
+  late AnimationController _continuousController;
+  late Animation<double> _rotationZ;
+  late Animation<double> _rotationX;
   late Animation<double> _bounce;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
+    // Roll-in animation (plays once when value changes)
+    _rollController = AnimationController(
+      duration: const Duration(milliseconds: 700),
       vsync: this,
     );
-    _rotation = Tween<double>(begin: 0, end: 2 * pi).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    _rotationZ = Tween<double>(begin: 0, end: 2 * pi).animate(
+      CurvedAnimation(parent: _rollController, curve: Curves.easeOutCubic),
+    );
+    _rotationX = Tween<double>(begin: -pi * 0.3, end: 0).animate(
+      CurvedAnimation(parent: _rollController, curve: Curves.easeOutBack),
     );
     _bounce = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.15), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.15, end: 0.95), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.0), weight: 30),
-    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    _controller.forward();
+      TweenSequenceItem(tween: Tween(begin: 0.6, end: 1.18), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 1.18, end: 0.92), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 0.92, end: 1.05), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.05, end: 1.0), weight: 20),
+    ]).animate(CurvedAnimation(parent: _rollController, curve: Curves.easeOut));
+
+    // Continuous spin for isRolling state (idle dice to tap)
+    _continuousController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    if (widget.isRolling) {
+      _continuousController.repeat();
+    } else {
+      _rollController.forward();
+    }
   }
 
   @override
   void didUpdateWidget(DiceWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      _controller.reset();
-      _controller.forward();
+    if (oldWidget.value != widget.value && !widget.isRolling) {
+      _continuousController.stop();
+      _rollController.reset();
+      _rollController.forward();
+    }
+    if (widget.isRolling && !oldWidget.isRolling) {
+      _rollController.stop();
+      _continuousController.repeat();
+    }
+    if (!widget.isRolling && oldWidget.isRolling) {
+      _continuousController.stop();
+      _rollController.reset();
+      _rollController.forward();
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _rollController.dispose();
+    _continuousController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isRolling) {
+      return AnimatedBuilder(
+        animation: _continuousController,
+        builder: (context, child) {
+          final angle = _continuousController.value * 2 * pi;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.003) // perspective
+              ..rotateY(angle)
+              ..rotateX(sin(angle) * 0.3),
+            child: child,
+          );
+        },
+        child: _buildDiceFace(),
+      );
+    }
+
     return AnimatedBuilder(
-      animation: _controller,
+      animation: _rollController,
       builder: (context, child) {
         return Transform.scale(
           scale: _bounce.value,
-          child: Transform.rotate(
-            angle: _rotation.value,
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.002) // perspective
+              ..rotateZ(_rotationZ.value)
+              ..rotateX(_rotationX.value),
             child: child,
           ),
         );
       },
-      child: Opacity(
-        opacity: widget.used ? 0.35 : 1.0,
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            // Clean premium dice face
-            gradient: const LinearGradient(
-              begin: Alignment(-0.8, -0.8),
-              end: Alignment(0.8, 0.8),
-              colors: [
-                Color(0xFFFAFAF5),
-                Color(0xFFF0EAD8),
-                Color(0xFFE5DCC6),
-                Color(0xFFD8CEB0),
-              ],
-              stops: [0.0, 0.3, 0.7, 1.0],
-            ),
-            borderRadius: BorderRadius.circular(widget.size * 0.2),
-            border: Border.all(
-              color: const Color(0xFF6A6A6C),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 6,
-                offset: const Offset(2, 3),
-              ),
-              BoxShadow(
-                color: const Color(0xFF6A6A6C).withValues(alpha: 0.5),
-                blurRadius: 0,
-                offset: const Offset(0, 2),
-                spreadRadius: 0,
-              ),
+      child: _buildDiceFace(),
+    );
+  }
+
+  Widget _buildDiceFace() {
+    return Opacity(
+      opacity: widget.used ? 0.3 : 1.0,
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          // Ivory/bone gradient with warm tone
+          gradient: const LinearGradient(
+            begin: Alignment(-0.9, -0.9),
+            end: Alignment(0.9, 0.9),
+            colors: [
+              Color(0xFFFFFEF8),
+              Color(0xFFF8F2E0),
+              Color(0xFFEDE4CE),
+              Color(0xFFE0D6B8),
+              Color(0xFFD5CBA8),
             ],
+            stops: [0.0, 0.2, 0.5, 0.8, 1.0],
           ),
-          child: CustomPaint(
-            painter: _DiceDotsPainter(widget.value),
+          borderRadius: BorderRadius.circular(widget.size * 0.18),
+          // Cube-edge border: lighter top-left, darker bottom-right
+          border: const Border(
+            top: BorderSide(color: Color(0xFFB8B0A0), width: 1.2),
+            left: BorderSide(color: Color(0xFFB8B0A0), width: 1.2),
+            bottom: BorderSide(color: Color(0xFF7A7268), width: 2.0),
+            right: BorderSide(color: Color(0xFF7A7268), width: 2.0),
           ),
+          boxShadow: [
+            // Main drop shadow
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.55),
+              blurRadius: 8,
+              offset: const Offset(1, 3),
+            ),
+            // Bottom edge shadow for 3D cube feel
+            BoxShadow(
+              color: const Color(0xFF5A5248).withValues(alpha: 0.6),
+              blurRadius: 0,
+              offset: const Offset(0, 2),
+              spreadRadius: -1,
+            ),
+            // Soft ambient shadow
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Surface shine highlight
+            Positioned(
+              left: widget.size * 0.1,
+              top: widget.size * 0.08,
+              child: Container(
+                width: widget.size * 0.35,
+                height: widget.size * 0.2,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.size * 0.1),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.45),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Dice dots
+            CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _DiceDotsPainter(widget.value, widget.size),
+            ),
+          ],
         ),
       ),
     );
@@ -116,33 +211,39 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
 
 class _DiceDotsPainter extends CustomPainter {
   final int value;
-  _DiceDotsPainter(this.value);
+  final double diceSize;
+  _DiceDotsPainter(this.value, this.diceSize);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final dotRadius = size.width * 0.09;
+    final dotRadius = size.width * 0.095;
     final positions = _getDotPositions(value, size);
 
     for (final pos in positions) {
-      // Dot shadow for inset effect
-      final shadowPaint = Paint()
-        ..color = Colors.black.withValues(alpha: 0.2)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(pos + const Offset(0.5, 0.5), dotRadius, shadowPaint);
+      // Inset shadow (recessed dot effect)
+      final insetShadowPaint = Paint()
+        ..color = Colors.black.withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+      canvas.drawCircle(
+        pos + const Offset(0.3, 0.8),
+        dotRadius + 0.5,
+        insetShadowPaint,
+      );
 
-      // Main dot
+      // Main dot with dark rich color
       final paint = Paint()
-        ..color = const Color(0xFF2C1810)
+        ..color = const Color(0xFF1A0E08)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(pos, dotRadius, paint);
 
-      // Tiny highlight on dot
+      // Inner gradient highlight on dot (gives depth)
       final highlightPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.15)
+        ..color = Colors.white.withValues(alpha: 0.12)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(
-        pos + Offset(-dotRadius * 0.25, -dotRadius * 0.25),
-        dotRadius * 0.35,
+        pos + Offset(-dotRadius * 0.2, -dotRadius * 0.25),
+        dotRadius * 0.4,
         highlightPaint,
       );
     }
@@ -183,5 +284,6 @@ class _DiceDotsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DiceDotsPainter old) => old.value != value;
+  bool shouldRepaint(covariant _DiceDotsPainter old) =>
+      old.value != value || old.diceSize != diceSize;
 }

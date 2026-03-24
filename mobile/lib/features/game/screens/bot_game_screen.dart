@@ -6,7 +6,6 @@ import '../providers/game_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../widgets/board_widget.dart';
-import '../widgets/dice_widget.dart';
 import '../../../core/theme/tavla_theme.dart';
 
 class BotGameScreen extends ConsumerStatefulWidget {
@@ -89,16 +88,20 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
             // Bot info bar (top)
             _buildPlayerBar(context, isBot: true, game: game),
 
-            // Board
+            // Board (with integrated dice in center bar and bearing-off trays)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: BoardWidget(
                   board: game.snapshot!.board,
                   myColor: game.myColor ?? 'W',
                   selectedPoint: game.selectedPoint,
                   isMyTurn: game.isMyTurn,
                   showPointNumbers: settings.pointNumbersEnabled,
+                  dice: game.snapshot!.dice,
+                  remainingDice: game.snapshot!.remainingDice,
+                  turnPhase: game.snapshot!.turnPhase,
+                  canBearOff: _canBearOff(game),
                   highlightedPoints: {
                     if (game.botMoveFrom != null) game.botMoveFrom!,
                     if (game.botMoveTo != null) game.botMoveTo!,
@@ -132,41 +135,15 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
                     }
                   },
                   onBarTap: () {},
+                  onDiceTap: game.isMyTurn && game.snapshot!.turnPhase == 'rolling'
+                      ? () => ref.read(botGameProvider.notifier).rollDice()
+                      : null,
+                  onBearOffTap: game.isMyTurn && game.selectedPoint != null
+                      ? () => ref.read(botGameProvider.notifier).bearOff(game.selectedPoint!)
+                      : null,
                 ),
               ),
             ),
-
-            // Dice area
-            if (game.snapshot!.dice != null &&
-                game.snapshot!.dice!.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.0),
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.5),
-                      const Color(0xFF1A1A1C).withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children:
-                      game.snapshot!.dice!.asMap().entries.map((entry) {
-                    final remaining = game.snapshot!.remainingDice ?? [];
-                    final used = !remaining.contains(entry.value);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: DiceWidget(
-                        value: entry.value,
-                        used: used,
-                        size: 48,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
 
             // Player info bar (bottom)
             _buildPlayerBar(context, isBot: false, game: game),
@@ -192,6 +169,7 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
             ? 'Orta'
             : 'Zor';
     final borneOff = _getBorneOff(game, isBot);
+    final isBotThinking = isBot && !game.isMyTurn && game.phase == GamePhase.playing;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -268,7 +246,7 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
                       : null,
                 ),
               ),
-              if (isCurrentTurn)
+              if (isCurrentTurn && !isBotThinking)
                 Text(
                   'Sıra',
                   style: TextStyle(
@@ -276,6 +254,8 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
                     fontSize: 10,
                   ),
                 ),
+              if (isBotThinking)
+                _BotThinkingIndicator(),
             ],
           ),
           const Spacer(),
@@ -316,6 +296,26 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
     return game.snapshot?.board.borneOff[color] ?? 0;
   }
 
+  bool _canBearOff(GamePlayState game) {
+    if (game.snapshot == null || game.myColor == null) return false;
+    final board = game.snapshot!.board;
+    final myColor = game.myColor!;
+    final bar = board.bar[myColor] ?? 0;
+    if (bar > 0) return false;
+    final borneOff = board.borneOff[myColor] ?? 0;
+    int homeCount = borneOff;
+    if (myColor == 'W') {
+      for (int i = 0; i < 6; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    } else {
+      for (int i = 18; i < 24; i++) {
+        if (board.points[i].player == myColor) homeCount += board.points[i].count;
+      }
+    }
+    return homeCount == 15;
+  }
+
   Widget _buildActionBar(BuildContext context, GamePlayState game) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -335,21 +335,29 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
       ),
       child: Row(
         children: [
-          // Roll dice
+          // Roll dice hint (encourage tapping dice in bar)
           if (game.isMyTurn && game.snapshot?.turnPhase == 'rolling')
-            ElevatedButton.icon(
-              onPressed: () =>
-                  ref.read(botGameProvider.notifier).rollDice(),
-              icon: const Icon(Icons.casino, size: 18),
-              label: const Text('Zar At', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TavlaTheme.gold,
-                foregroundColor: TavlaTheme.darkBrown,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 4,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: TavlaTheme.gold.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: TavlaTheme.gold.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.touch_app, size: 16, color: Color(0xCCD4A76A)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Zara Dokun',
+                    style: TextStyle(
+                      color: TavlaTheme.gold,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -472,6 +480,63 @@ class _BotGameScreenState extends ConsumerState<BotGameScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Animated "thinking..." dots indicator for bot turn
+class _BotThinkingIndicator extends StatefulWidget {
+  @override
+  State<_BotThinkingIndicator> createState() => _BotThinkingIndicatorState();
+}
+
+class _BotThinkingIndicatorState extends State<_BotThinkingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final delay = i * 0.25;
+            final value = ((_controller.value - delay) % 1.0).clamp(0.0, 1.0);
+            final opacity = value < 0.5 ? value * 2 : (1.0 - value) * 2;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: Opacity(
+                opacity: opacity.clamp(0.3, 1.0),
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: TavlaTheme.gold.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

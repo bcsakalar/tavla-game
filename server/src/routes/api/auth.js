@@ -26,7 +26,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
 });
 
 // POST /api/auth/refresh
-router.post('/refresh', async (req, res, next) => {
+router.post('/refresh', authLimiter, async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) {

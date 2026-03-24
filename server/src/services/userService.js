@@ -3,6 +3,8 @@ const db = require('../models/db');
 const { generateTokens } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const AppError = require('../utils/AppError');
+const { AVATAR_URL_MAX_LENGTH } = require('../config/constants');
 
 const SALT_ROUNDS = 12;
 
@@ -12,16 +14,16 @@ const SALT_ROUNDS = 12;
 async function register(username, email, password) {
   // Validate input lengths
   if (!username || username.length < 3 || username.length > 20) {
-    throw Object.assign(new Error('Kullanıcı adı 3-20 karakter olmalı'), { statusCode: 400 });
+    throw new AppError('Kullanıcı adı 3-20 karakter olmalı', 400);
   }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw Object.assign(new Error('Geçerli bir email adresi girin'), { statusCode: 400 });
+    throw new AppError('Geçerli bir email adresi girin', 400);
   }
   if (!password || password.length < 8) {
-    throw Object.assign(new Error('Şifre en az 8 karakter olmalı'), { statusCode: 400 });
+    throw new AppError('Şifre en az 8 karakter olmalı', 400);
   }
   if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    throw Object.assign(new Error('Kullanıcı adı sadece harf, rakam ve alt çizgi içerebilir'), { statusCode: 400 });
+    throw new AppError('Kullanıcı adı sadece harf, rakam ve alt çizgi içerebilir', 400);
   }
 
   // Check existing
@@ -30,7 +32,7 @@ async function register(username, email, password) {
     [username, email.toLowerCase()],
   );
   if (existing.rows.length > 0) {
-    throw Object.assign(new Error('Bu kullanıcı adı veya email zaten kullanılıyor'), { statusCode: 409 });
+    throw new AppError('Bu kullanıcı adı veya email zaten kullanılıyor', 409);
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -64,12 +66,12 @@ async function login(identifier, password) {
   const user = result.rows[0];
 
   if (user.is_banned) {
-    throw Object.assign(new Error('Hesabınız engellenmiş'), { statusCode: 403 });
+    throw new AppError('Hesabınız engellenmiş', 403);
   }
 
   const validPassword = await bcrypt.compare(password, user.password_hash);
   if (!validPassword) {
-    throw Object.assign(new Error('Kullanıcı adı veya şifre hatalı'), { statusCode: 401 });
+    throw new AppError('Kullanıcı adı veya şifre hatalı', 401);
   }
 
   // Update last login
@@ -96,7 +98,7 @@ async function refreshToken(token) {
     );
 
     if (result.rows.length === 0) {
-      throw Object.assign(new Error('Kullanıcı bulunamadı'), { statusCode: 404 });
+      throw new AppError('Kullanıcı bulunamadı', 404);
     }
 
     const user = result.rows[0];
@@ -105,7 +107,7 @@ async function refreshToken(token) {
     return tokens;
   } catch (err) {
     if (err.statusCode) throw err;
-    throw Object.assign(new Error('Geçersiz refresh token'), { statusCode: 401 });
+    throw new AppError('Geçersiz refresh token', 401);
   }
 }
 
@@ -122,7 +124,7 @@ async function getProfile(userId) {
   );
 
   if (result.rows.length === 0) {
-    throw Object.assign(new Error('Kullanıcı bulunamadı'), { statusCode: 404 });
+    throw new AppError('Kullanıcı bulunamadı', 404);
   }
 
   return result.rows[0];
@@ -137,6 +139,25 @@ async function updateProfile(userId, updates) {
   const values = [];
   let paramIndex = 1;
 
+  // Validate avatar_url
+  if (updates.avatar_url !== undefined && updates.avatar_url !== null) {
+    const url = String(updates.avatar_url);
+    if (url.length > AVATAR_URL_MAX_LENGTH) {
+      throw new AppError(`Avatar URL en fazla ${AVATAR_URL_MAX_LENGTH} karakter olabilir`, 400);
+    }
+    if (url.length > 0) {
+      try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          throw new AppError('Avatar URL yalnızca http veya https olabilir', 400);
+        }
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        throw new AppError('Geçersiz avatar URL formatı', 400);
+      }
+    }
+  }
+
   for (const key of allowed) {
     if (updates[key] !== undefined) {
       setClauses.push(`${key} = $${paramIndex}`);
@@ -146,7 +167,7 @@ async function updateProfile(userId, updates) {
   }
 
   if (setClauses.length === 0) {
-    throw Object.assign(new Error('Güncellenecek alan belirtilmedi'), { statusCode: 400 });
+    throw new AppError('Güncellenecek alan belirtilmedi', 400);
   }
 
   values.push(userId);

@@ -54,63 +54,49 @@ class BoardWidget extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          // Main drop shadow (floating board effect)
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.7),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
-          // Secondary ambient shadow
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            // Bevel frame: multi-stop gradient for carved wood look
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF5A3E28),
                 Color(0xFF4A3020),
                 Color(0xFF3A2414),
                 Color(0xFF2A1A0E),
                 Color(0xFF3A2414),
                 Color(0xFF4A3020),
               ],
-              stops: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0],
+              stops: [0.0, 0.2, 0.5, 0.8, 1.0],
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(5),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(7),
-              // Inner border for depth
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: const Color(0xFF1A1008),
+                color: const Color(0xFF2D1A10),
                 width: 1.5,
               ),
-              // Inset shadow effect on playing surface
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                  spreadRadius: -2,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(5.5),
+              borderRadius: BorderRadius.circular(5),
               child: Row(
                 children: [
                   // Left bearing-off tray (opponent's tray when White, my tray when Black)
@@ -196,20 +182,12 @@ class BoardWidget extends StatelessWidget {
         // Top row of 6 points (triangles pointing down)
         Expanded(
           child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF353535), Color(0xFF3E3E40), Color(0xFF404042), Color(0xFF3A3A3C)],
-                stops: [0.0, 0.15, 0.5, 1.0],
+                colors: [Color(0xFF383838), Color(0xFF404042), Color(0xFF383838)],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 3,
-                  offset: const Offset(0, 1),
-                ),
-              ],
             ),
             child: Row(
               children: topIndices.map((idx) {
@@ -221,20 +199,12 @@ class BoardWidget extends StatelessWidget {
         // Bottom row of 6 points (triangles pointing up)
         Expanded(
           child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF3A3A3C), Color(0xFF404042), Color(0xFF3E3E40), Color(0xFF353535)],
-                stops: [0.0, 0.5, 0.85, 1.0],
+                colors: [Color(0xFF383838), Color(0xFF404042), Color(0xFF383838)],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 3,
-                  offset: const Offset(0, -1),
-                ),
-              ],
             ),
             child: Row(
               children: bottomIndices.map((idx) {
@@ -327,24 +297,20 @@ class BoardWidget extends StatelessWidget {
                   ),
                 ),
 
-              // Bot move glow border (enhanced with double glow)
+              // Bot move glow border
               if (isBotHighlight)
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: TavlaTheme.gold.withValues(alpha: 0.85),
-                        width: 2.5,
+                        color: TavlaTheme.gold.withValues(alpha: 0.7),
+                        width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: TavlaTheme.gold.withValues(alpha: 0.5),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: TavlaTheme.gold.withValues(alpha: 0.25),
-                          blurRadius: 4,
+                          color: TavlaTheme.gold.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          spreadRadius: 1,
                         ),
                       ],
                     ),
@@ -416,21 +382,17 @@ class BoardWidget extends StatelessWidget {
   Widget _buildMoveHintDot(bool isDanger) {
     final color = isDanger ? TavlaTheme.danger : TavlaTheme.success;
     return Container(
-      width: 18,
-      height: 18,
+      width: 16,
+      height: 16,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.65),
-        border: Border.all(color: color.withValues(alpha: 0.9), width: 2),
+        color: color.withValues(alpha: 0.7),
+        border: Border.all(color: color, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.5),
-            blurRadius: 8,
+            blurRadius: 6,
             spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: color.withValues(alpha: 0.25),
-            blurRadius: 4,
           ),
         ],
       ),
@@ -441,20 +403,16 @@ class BoardWidget extends StatelessWidget {
   Widget _buildMoveHintCircle(double pieceSize, bool isCapture) {
     final color = isCapture ? TavlaTheme.danger : TavlaTheme.success;
     return Container(
-      width: pieceSize + 8,
-      height: pieceSize + 8,
+      width: pieceSize + 6,
+      height: pieceSize + 6,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: color.withValues(alpha: 0.9), width: 2.5),
+        border: Border.all(color: color, width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.45),
-            blurRadius: 10,
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 8,
             spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 4,
           ),
         ],
       ),
@@ -481,38 +439,24 @@ class BoardWidget extends StatelessWidget {
     return GestureDetector(
       onTap: onBarTap,
       child: Container(
-        width: 44,
+        width: 42,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color(0xFF222224),
+              Color(0xFF2A2A2C),
+              Color(0xFF3A3A3C),
               Color(0xFF2E2E30),
               Color(0xFF3A3A3C),
-              Color(0xFF343436),
-              Color(0xFF2E2E30),
-              Color(0xFF222224),
+              Color(0xFF2A2A2C),
             ],
-            stops: [0.0, 0.1, 0.35, 0.65, 0.9, 1.0],
+            stops: [0.0, 0.2, 0.5, 0.8, 1.0],
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 6,
-              spreadRadius: -1,
-            ),
-            // Left edge shadow
-            BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 3,
-              offset: const Offset(-2, 0),
-            ),
-            // Right edge shadow
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 3,
-              offset: const Offset(2, 0),
+              blurRadius: 4,
             ),
           ],
         ),
@@ -641,28 +585,21 @@ class BoardWidget extends StatelessWidget {
           begin: const Alignment(-0.8, -0.8),
           end: const Alignment(0.8, 0.8),
           colors: [
-            const Color(0xFFFAFAF5).withValues(alpha: 0.25),
-            const Color(0xFFD8CEB0).withValues(alpha: 0.25),
+            const Color(0xFFFAFAF5).withValues(alpha: 0.3),
+            const Color(0xFFD8CEB0).withValues(alpha: 0.3),
           ],
         ),
         borderRadius: BorderRadius.circular(7),
         border: Border.all(
-          color: TavlaTheme.gold.withValues(alpha: 0.6),
+          color: TavlaTheme.gold.withValues(alpha: 0.5),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: TavlaTheme.gold.withValues(alpha: 0.15),
-            blurRadius: 6,
-            spreadRadius: 0,
-          ),
-        ],
       ),
       child: Center(
         child: Icon(
           Icons.casino,
           size: 18,
-          color: TavlaTheme.gold.withValues(alpha: 0.7),
+          color: TavlaTheme.gold.withValues(alpha: 0.6),
         ),
       ),
     );
@@ -678,7 +615,7 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final triHeight = size.height * 0.88;
+    final triHeight = size.height * 0.85;
     final path = Path();
     if (isTop) {
       path.moveTo(0, 0);
@@ -696,33 +633,31 @@ class _TrianglePainter extends CustomPainter {
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
       colors: [color2, color1, color1, color2],
-      stops: const [0.0, 0.25, 0.75, 1.0],
+      stops: const [0.0, 0.3, 0.7, 1.0],
     );
     final paint = Paint()
       ..shader = gradient.createShader(rect)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paint);
 
-    // Darker outline for depth
     final outlinePaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
+      ..color = Colors.black.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.7;
+      ..strokeWidth = 0.5;
     canvas.drawPath(path, outlinePaint);
 
-    // Inner highlight line (3D edge)
     final highlightPath = Path();
     if (isTop) {
-      highlightPath.moveTo(size.width * 0.32, size.height * 0.02);
-      highlightPath.lineTo(size.width / 2, triHeight * 0.92);
+      highlightPath.moveTo(size.width * 0.35, size.height * 0.03);
+      highlightPath.lineTo(size.width / 2, triHeight * 0.9);
     } else {
-      highlightPath.moveTo(size.width * 0.32, size.height * 0.98);
-      highlightPath.lineTo(size.width / 2, size.height - triHeight * 0.92);
+      highlightPath.moveTo(size.width * 0.35, size.height * 0.97);
+      highlightPath.lineTo(size.width / 2, size.height - triHeight * 0.9);
     }
     final highlightPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = 1.0;
     canvas.drawPath(highlightPath, highlightPaint);
   }
 

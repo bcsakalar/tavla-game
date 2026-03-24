@@ -49,6 +49,7 @@
           <% if (user.role !== 'admin') { %>
           <form method="POST" action="/admin/users/<%= user.id %>/ban" style="display:inline"
             onsubmit="return confirm(this.dataset.msg)" data-msg="<%= user.is_banned ? 'Engeli kaldır?' : 'Kullanıcıyı engelle?' %>">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button type="submit" class="btn btn-sm <%= user.is_banned ? 'btn-success' : 'btn-danger' %>">
               <i class="bi <%= user.is_banned ? 'bi-unlock' : 'bi-lock' %>"></i>
             </button>

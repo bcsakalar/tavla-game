@@ -9,7 +9,9 @@
 
 const { createGame, startGame, getGameSnapshot } = require('../../game/engine');
 const gameService = require('../../services/gameService');
+const stateStore = require('../../game/stateStore');
 const config = require('../../config');
+const logger = require('../../utils/logger');
 
 // Matchmaking queue: Map<socketId, { userId, username, elo, joinedAt, socket }>
 const queue = new Map();
@@ -145,7 +147,7 @@ async function createMatch(io, playerA, playerB) {
     });
     await gameService.updateDailyStats('total_games');
   } catch (err) {
-    console.error('[Matchmaking] DB error:', err.message);
+    logger.error('Matchmaking', 'DB error', err);
     whitePlayer.socket.emit('lobby:error', { message: 'Oyun oluşturulamadı' });
     blackPlayer.socket.emit('lobby:error', { message: 'Oyun oluşturulamadı' });
     return;
@@ -158,6 +160,11 @@ async function createMatch(io, playerA, playerB) {
   activeGames.set(gameId, game);
   playerGames.set(whitePlayer.userId, gameId);
   playerGames.set(blackPlayer.userId, gameId);
+
+  // Persist to Redis
+  stateStore.saveGame(gameId, game);
+  stateStore.setPlayerGame(whitePlayer.userId, gameId);
+  stateStore.setPlayerGame(blackPlayer.userId, gameId);
 
   // Join game room
   const roomName = `game:${gameId}`;

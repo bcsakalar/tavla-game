@@ -1,9 +1,11 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const db = require('./db');
 
 async function seed() {
   try {
-    const passwordHash = await bcrypt.hash('admin123456', 12);
+    const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
 
     await db.query(`
       INSERT INTO users (username, email, password_hash, role, elo_rating)
@@ -11,7 +13,11 @@ async function seed() {
       ON CONFLICT (username) DO NOTHING
     `, ['admin', 'admin@tavla.com', passwordHash, 'admin', 1500]);
 
-    console.error('Seed completed: admin user created (admin / admin123456)');
+    if (!process.env.ADMIN_PASSWORD) {
+      console.log(`Seed completed: admin user created (admin / ${adminPassword})`);
+    } else {
+      console.log('Seed completed: admin user created');
+    }
   } catch (err) {
     console.error('Seed failed:', err.message);
     process.exit(1);

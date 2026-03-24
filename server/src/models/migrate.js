@@ -1,4 +1,5 @@
 const db = require('./db');
+const logger = require('../utils/logger');
 
 const SCHEMA = `
 -- Users table
@@ -88,6 +89,11 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
 
+-- User performance indexes
+CREATE INDEX IF NOT EXISTS idx_users_elo_rating ON users(elo_rating DESC);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
 -- Daily stats for admin dashboard
 CREATE TABLE IF NOT EXISTS daily_stats (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -119,9 +125,9 @@ CREATE TRIGGER set_updated_at
 async function migrate() {
   try {
     await db.query(SCHEMA);
-    console.error('Database migration completed successfully');
+    logger.info('DB', 'Database migration completed successfully');
   } catch (err) {
-    console.error('Migration failed:', err.message);
+    logger.error('DB', 'Migration failed', err);
     process.exit(1);
   } finally {
     await db.pool.end();

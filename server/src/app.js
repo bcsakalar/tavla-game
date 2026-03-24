@@ -7,6 +7,8 @@ const morgan = require('morgan');
 const session = require('express-session');
 const path = require('path');
 const config = require('./config');
+const requestId = require('./middleware/requestId');
+const db = require('./models/db');
 
 // Create Express app & HTTP server
 const app = express();
@@ -30,6 +32,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Middleware
+app.use(requestId);
 app.use(helmet({
   contentSecurityPolicy: false, // EJS admin panel needs inline scripts
 }));
@@ -64,8 +67,13 @@ app.use('/api/leaderboard', require('./routes/api/leaderboard'));
 app.use('/admin', require('./routes/admin'));
 
 // Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+app.get('/health', async (_req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', uptime: process.uptime(), db: true });
+  } catch {
+    res.status(503).json({ status: 'error', uptime: process.uptime(), db: false });
+  }
 });
 
 // Error handling

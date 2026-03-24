@@ -20,138 +20,190 @@ class PieceWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWhite = player == 'W';
-    final rimWidth = size * 0.07;
+    final rimWidth = size * 0.08;
+    final bodySize = size - rimWidth * 2;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          // Metallic rim gradient (chrome ring effect)
-          gradient: RadialGradient(
-            center: const Alignment(-0.25, -0.35),
-            radius: 0.85,
-            colors: isWhite
-                ? [
-                    const Color(0xFFD0D0D2),
-                    const Color(0xFFB8B8BA),
-                    const Color(0xFF9A9A9C),
-                    const Color(0xFF808082),
-                  ]
-                : [
-                    const Color(0xFF8A8A8C),
-                    const Color(0xFF727274),
-                    const Color(0xFF5A5A5C),
-                    const Color(0xFF4A4A4C),
-                  ],
-            stops: const [0.0, 0.3, 0.65, 1.0],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 3,
-              offset: const Offset(1, 2),
+      child: AnimatedScale(
+        scale: isSelected ? 1.06 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              center: const Alignment(-0.2, -0.3),
+              radius: 0.9,
+              colors: isWhite
+                  ? [
+                      const Color(0xFFD8D8DA),
+                      const Color(0xFFC0C0C2),
+                      const Color(0xFF9A9A9C),
+                      const Color(0xFF747476),
+                    ]
+                  : [
+                      const Color(0xFF8A8A8C),
+                      const Color(0xFF6A6A6C),
+                      const Color(0xFF525254),
+                      const Color(0xFF404042),
+                    ],
+              stops: const [0.0, 0.3, 0.7, 1.0],
             ),
-            if (isSelected)
+            boxShadow: [
+              // Main drop shadow
               BoxShadow(
-                color: TavlaTheme.gold.withValues(alpha: 0.6),
-                blurRadius: 8,
-                spreadRadius: 2,
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 6,
+                spreadRadius: 0.5,
+                offset: const Offset(0, 3),
               ),
-          ],
-        ),
-        child: Center(
-          child: Container(
-            width: size - rimWidth * 2,
-            height: size - rimWidth * 2,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              // Piece body
-              gradient: RadialGradient(
-                center: const Alignment(-0.2, -0.3),
-                radius: 0.85,
-                colors: isWhite
-                    ? [
-                        const Color(0xFFF0EAE0),
-                        const Color(0xFFE0D8CC),
-                        const Color(0xFFD0C8BA),
-                        const Color(0xFFC2BAA8),
-                      ]
-                    : [
-                        const Color(0xFF5A5A5C),
-                        const Color(0xFF4A4A4C),
-                        const Color(0xFF3C3C3E),
-                        const Color(0xFF303032),
-                      ],
-                stops: const [0.0, 0.35, 0.65, 1.0],
+              // Subtle ambient shadow
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
-              border: Border.all(
-                color: isSelected
-                    ? TavlaTheme.gold
-                    : Colors.black.withValues(alpha: 0.12),
-                width: isSelected ? 2.0 : 0.5,
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Inner concentric groove ring
-                Center(
-                  child: Container(
-                    width: (size - rimWidth * 2) * 0.6,
-                    height: (size - rimWidth * 2) * 0.6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isWhite
-                            ? const Color(0x20000000)
-                            : const Color(0x18FFFFFF),
-                        width: 0.5,
-                      ),
-                    ),
-                  ),
+              // Selected gold glow
+              if (isSelected)
+                BoxShadow(
+                  color: TavlaTheme.gold.withValues(alpha: 0.7),
+                  blurRadius: 10,
+                  spreadRadius: 2,
                 ),
-                // Shine highlight
-                Positioned(
-                  left: (size - rimWidth * 2) * 0.2,
-                  top: (size - rimWidth * 2) * 0.1,
-                  child: Container(
-                    width: (size - rimWidth * 2) * 0.25,
-                    height: (size - rimWidth * 2) * 0.15,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: isWhite ? 0.45 : 0.12),
-                          Colors.white.withValues(alpha: 0.0),
+            ],
+          ),
+          child: Center(
+            child: Container(
+              width: bodySize,
+              height: bodySize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: const Alignment(-0.15, -0.25),
+                  radius: 0.85,
+                  colors: isWhite
+                      ? [
+                          const Color(0xFFFAF6F0),
+                          const Color(0xFFEDE5D8),
+                          const Color(0xFFDDD4C4),
+                          const Color(0xFFCEC4B2),
+                          const Color(0xFFC0B6A0),
+                        ]
+                      : [
+                          const Color(0xFF686868),
+                          const Color(0xFF545456),
+                          const Color(0xFF444446),
+                          const Color(0xFF363638),
+                          const Color(0xFF2C2C2E),
                         ],
-                      ),
-                    ),
-                  ),
+                  stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
                 ),
-                // Count text
-                if (count > 1)
+                border: Border.all(
+                  color: isSelected
+                      ? TavlaTheme.gold
+                      : isWhite
+                          ? const Color(0x25000000)
+                          : const Color(0x18000000),
+                  width: isSelected ? 1.8 : 0.8,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Inner concentric groove
                   Center(
-                    child: Text(
-                      '$count',
-                      style: TextStyle(
-                        color: isWhite ? TavlaTheme.darkBrown : Colors.white,
-                        fontSize: (size - rimWidth * 2) * 0.38,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
+                    child: Container(
+                      width: bodySize * 0.58,
+                      height: bodySize * 0.58,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isWhite
+                              ? const Color(0x22000000)
+                              : const Color(0x1AFFFFFF),
+                          width: 0.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
                             color: isWhite
-                                ? Colors.black.withValues(alpha: 0.15)
-                                : Colors.black.withValues(alpha: 0.5),
-                            offset: const Offset(0, 1),
+                                ? Colors.black.withValues(alpha: 0.04)
+                                : Colors.white.withValues(alpha: 0.03),
                             blurRadius: 2,
+                            spreadRadius: -1,
                           ),
                         ],
                       ),
                     ),
                   ),
-              ],
+                  // Primary shine highlight
+                  Positioned(
+                    left: bodySize * 0.18,
+                    top: bodySize * 0.08,
+                    child: Container(
+                      width: bodySize * 0.3,
+                      height: bodySize * 0.18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: isWhite ? 0.55 : 0.15),
+                            Colors.white.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Secondary subtle edge highlight
+                  Positioned(
+                    right: bodySize * 0.2,
+                    bottom: bodySize * 0.2,
+                    child: Container(
+                      width: bodySize * 0.15,
+                      height: bodySize * 0.1,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: isWhite ? 0.12 : 0.05),
+                            Colors.white.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Count badge
+                  if (count > 1)
+                    Center(
+                      child: Container(
+                        padding: EdgeInsets.all(bodySize * 0.06),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isWhite
+                              ? Colors.black.withValues(alpha: 0.08)
+                              : Colors.white.withValues(alpha: 0.08),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            color: isWhite ? TavlaTheme.darkBrown : Colors.white,
+                            fontSize: bodySize * 0.38,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(
+                                color: isWhite
+                                    ? Colors.black.withValues(alpha: 0.2)
+                                    : Colors.black.withValues(alpha: 0.6),
+                                offset: const Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

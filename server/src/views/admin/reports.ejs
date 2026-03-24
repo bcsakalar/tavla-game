@@ -38,6 +38,7 @@
         <td>
           <% if (report.status === 'pending') { %>
           <form method="POST" action="/admin/reports/<%= report.id %>/resolve" class="d-inline">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="text" name="admin_note" class="form-control form-control-sm d-inline-block" style="width:150px" placeholder="Not...">
             <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check"></i></button>
           </form>

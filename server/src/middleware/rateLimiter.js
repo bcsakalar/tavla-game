@@ -22,4 +22,15 @@ const authLimiter = rateLimit({
   message: { error: 'Çok fazla giriş denemesi, lütfen daha sonra tekrar deneyin' },
 });
 
-module.exports = { apiLimiter, authLimiter };
+/**
+ * Stricter rate limiter for admin login (5 attempts per 15 min).
+ */
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Çok fazla giriş denemesi, lütfen daha sonra tekrar deneyin' },
+});
+
+module.exports = { apiLimiter, authLimiter, adminLoginLimiter };

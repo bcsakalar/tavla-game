@@ -2,12 +2,14 @@
  * Express error handling middleware.
  */
 
+const logger = require('../utils/logger');
+
 function notFound(req, res, _next) {
   res.status(404).json({ error: 'Sayfa bulunamadı' });
 }
 
 function errorHandler(err, req, res, _next) {
-  console.error('[Error]', err.message);
+  logger.error('HTTP', `${req.method} ${req.originalUrl} [reqId=${req.id || '-'}]`, err);
 
   if (err.type === 'validation') {
     return res.status(400).json({ error: err.message });

@@ -19,6 +19,7 @@ const {
 const { chooseMoves } = require('../../game/bot');
 const { rollDice, expandDice } = require('../../game/dice');
 const config = require('../../config');
+const { validateMoveData } = require('./game');
 
 // Bot games: Map<userId, { game, difficulty, turnTimer }>
 const botGames = new Map();
@@ -60,6 +61,8 @@ function botHandler(io, socket) {
 
   // Player rolls dice
   socket.on('bot:rollDice', () => {
+    if (!socket.rateLimitCheck('bot:rollDice')) return;
+
     const session = botGames.get(userId);
     if (!session) return socket.emit('game:error', { message: 'Bot oyunu yok' });
 
@@ -88,6 +91,11 @@ function botHandler(io, socket) {
 
   // Player makes a move
   socket.on('bot:move', (moveData) => {
+    if (!socket.rateLimitCheck('bot:move')) return;
+
+    const validated = validateMoveData(moveData);
+    if (!validated) return socket.emit('game:error', { message: 'Geçersiz hamle verisi' });
+
     const session = botGames.get(userId);
     if (!session) return;
 
@@ -95,20 +103,20 @@ function botHandler(io, socket) {
     const color = getPlayerColor(game, userId);
     if (!color) return;
 
-    let dieValue = moveData.dieValue;
-    if (dieValue === undefined || dieValue === null) {
-      if (moveData.from === 'bar') {
-        dieValue = color === 'W' ? (24 - moveData.to) : (moveData.to + 1);
-      } else if (moveData.to === 'off') {
-        dieValue = color === 'W' ? (moveData.from + 1) : (24 - moveData.from);
+    let dieValue = validated.dieValue;
+    if (dieValue === undefined) {
+      if (validated.from === 'bar') {
+        dieValue = color === 'W' ? (24 - validated.to) : (validated.to + 1);
+      } else if (validated.to === 'off') {
+        dieValue = color === 'W' ? (validated.from + 1) : (24 - validated.from);
       } else {
-        dieValue = color === 'W' ? (moveData.from - moveData.to) : (moveData.to - moveData.from);
+        dieValue = color === 'W' ? (validated.from - validated.to) : (validated.to - validated.from);
       }
     }
 
     const move = {
-      from: moveData.from,
-      to: moveData.to,
+      from: validated.from,
+      to: validated.to,
       dieValue,
       isHit: false,
     };
