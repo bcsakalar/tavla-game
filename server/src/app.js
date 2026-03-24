@@ -56,16 +56,16 @@ const sessionConfig = {
   },
 };
 
-try {
-  const { RedisStore } = require('connect-redis');
-  const Redis = require('ioredis');
-  const sessionRedis = new Redis(config.redis.url);
-  sessionConfig.store = new RedisStore({
-    client: sessionRedis,
-    prefix: 'tavla:sess:',
-  });
-} catch {
-  // connect-redis or ioredis not available — fallback to MemoryStore
+if (redis) {
+  try {
+    const { RedisStore } = require('connect-redis');
+    sessionConfig.store = new RedisStore({
+      client: redis,
+      prefix: 'sess:',
+    });
+  } catch {
+    // connect-redis not available — fallback to MemoryStore
+  }
 }
 
 app.use(session(sessionConfig));

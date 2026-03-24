@@ -17,7 +17,6 @@ try {
       if (times > 5) return null; // Stop retrying
       return Math.min(times * 200, 2000);
     },
-    lazyConnect: true,
   });
 
   redis.on('error', (err) => {
