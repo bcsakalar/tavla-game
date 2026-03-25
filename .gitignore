@@ -56,7 +56,6 @@ desktop.ini
 # ========================
 # AI Agent Infrastructure
 # ========================
-knowledge/
 .agents/
 .github/
 AGENTS.md
