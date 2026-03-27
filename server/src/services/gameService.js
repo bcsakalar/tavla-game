@@ -47,6 +47,31 @@ async function saveGameMove(gameId, userId, moveNumber, diceValues, moves, board
 }
 
 /**
+ * Save all game moves in a single batch INSERT.
+ * Much faster than N sequential inserts for games with many turns.
+ */
+async function saveGameMovesBatch(gameId, moveHistory, whitePlayerId, blackPlayerId) {
+  if (!moveHistory || moveHistory.length === 0) return;
+
+  const values = [];
+  const params = [];
+  let paramIdx = 1;
+
+  for (const move of moveHistory) {
+    const moveUserId = move.player === 'W' ? whitePlayerId : blackPlayerId;
+    values.push(`($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4}, $${paramIdx + 5})`);
+    params.push(gameId, moveUserId, move.moveNumber, move.dice, JSON.stringify(move.moves), JSON.stringify(move.boardAfter));
+    paramIdx += 6;
+  }
+
+  await db.query(
+    `INSERT INTO game_moves (game_id, user_id, move_number, dice_values, moves, board_after)
+     VALUES ${values.join(', ')}`,
+    params,
+  );
+}
+
+/**
  * Get game by ID with player info.
  */
 async function getGameById(gameId) {
@@ -142,6 +167,7 @@ module.exports = {
   createGameRecord,
   finishGameRecord,
   saveGameMove,
+  saveGameMovesBatch,
   getGameById,
   getUserGames,
   getGameMoves,

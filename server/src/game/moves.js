@@ -113,15 +113,109 @@ function applySingleMove(board, player, move) {
 }
 
 /**
+ * Apply a move in-place (mutates the board directly). Returns undo info.
+ * Used by optimized findAllMoveSequences to avoid cloneBoard overhead.
+ */
+function applyMoveInPlace(board, player, move) {
+  const undo = { from: move.from, to: move.to, isHit: move.isHit, hitPlayer: null, removedPiece: null };
+
+  // Remove piece from source
+  if (move.from === BAR) {
+    board.bar[player]--;
+  } else {
+    board.points[move.from].pop();
+  }
+
+  // Place piece at destination
+  if (move.to === OFF) {
+    board.borneOff[player]++;
+  } else {
+    if (move.isHit) {
+      const hitPlayer = opponent(player);
+      undo.hitPlayer = hitPlayer;
+      undo.removedPiece = board.points[move.to][0];
+      board.points[move.to] = [player];
+      board.bar[hitPlayer]++;
+    } else {
+      board.points[move.to].push(player);
+    }
+  }
+
+  return undo;
+}
+
+/**
+ * Undo a move in-place (reverses applyMoveInPlace).
+ */
+function undoMoveInPlace(board, player, move, undo) {
+  // Undo destination
+  if (move.to === OFF) {
+    board.borneOff[player]--;
+  } else {
+    if (undo.isHit && undo.hitPlayer) {
+      board.bar[undo.hitPlayer]--;
+      board.points[move.to] = [undo.removedPiece];
+    } else {
+      board.points[move.to].pop();
+    }
+  }
+
+  // Undo source
+  if (move.from === BAR) {
+    board.bar[player]++;
+  } else {
+    board.points[move.from].push(player);
+  }
+}
+
+/**
  * Recursively find all possible move sequences using the given remaining dice.
+ * Optimized: uses in-place board mutation with undo to avoid cloneBoard overhead.
+ * Tracks maximum moves found for early termination.
  * Returns array of { moves: [...], board: finalBoard }
  */
 function findAllMoveSequences(board, player, remainingDice, movesSoFar) {
-  if (remainingDice.length === 0) {
-    return [{ moves: [...movesSoFar], board: cloneBoard(board) }];
+  // Delegate to optimized internal function that tracks max depth
+  const context = { maxMovesFound: 0 };
+  const rawResults = [];
+  _findSequencesOptimized(board, player, remainingDice, movesSoFar || [], rawResults, context);
+
+  // Convert raw results (which only have moves) to include board snapshots
+  // by replaying moves on the original board (only for final results)
+  if (rawResults.length === 0) {
+    return [{ moves: movesSoFar ? [...movesSoFar] : [], board: cloneBoard(board) }];
   }
 
-  const results = [];
+  return rawResults.map((r) => {
+    // Replay moves to get final board state
+    let b = cloneBoard(board);
+    // Skip movesSoFar prefix since those are already applied on the input board
+    for (const m of r.moves) {
+      b = applySingleMove(b, player, m);
+    }
+    return { moves: r.moves, board: b };
+  });
+}
+
+/**
+ * Internal optimized recursive search. Mutates board in-place and undoes.
+ * Results are stored as move arrays only (boards computed lazily).
+ */
+function _findSequencesOptimized(board, player, remainingDice, movesSoFar, results, context) {
+  if (remainingDice.length === 0) {
+    results.push({ moves: [...movesSoFar] });
+    context.maxMovesFound = Math.max(context.maxMovesFound, movesSoFar.length);
+    return;
+  }
+
+  // Early termination: if we already found sequences using all dice, and current
+  // branch can't possibly reach that (remaining + done < max found), skip
+  const maxPossible = movesSoFar.length + remainingDice.length;
+  if (context.maxMovesFound > 0 && maxPossible < context.maxMovesFound) {
+    return;
+  }
+
+  let anyMoveFound = false;
   const triedDice = new Set();
 
   for (let i = 0; i < remainingDice.length; i++) {
@@ -131,22 +225,38 @@ function findAllMoveSequences(board, player, remainingDice, movesSoFar) {
 
     const singleMoves = getSingleMoves(board, player, dieValue);
 
+    // Deduplicate moves that lead to identical board positions
+    const seenTargets = new Set();
+
     for (const move of singleMoves) {
-      const newBoard = applySingleMove(board, player, move);
+      // Dedup key: from-to is sufficient for same die value
+      const moveKey = `${move.from}-${move.to}`;
+      if (seenTargets.has(moveKey)) continue;
+      seenTargets.add(moveKey);
+
+      anyMoveFound = true;
+
+      // Apply move in-place
+      const undo = applyMoveInPlace(board, player, move);
+
+      // Build new remaining dice
       const newRemaining = [...remainingDice];
       newRemaining.splice(i, 1);
 
-      const subResults = findAllMoveSequences(newBoard, player, newRemaining, [...movesSoFar, move]);
-      results.push(...subResults);
+      movesSoFar.push(move);
+      _findSequencesOptimized(board, player, newRemaining, movesSoFar, results, context);
+      movesSoFar.pop();
+
+      // Undo move in-place
+      undoMoveInPlace(board, player, move, undo);
     }
   }
 
-  // If no moves possible with remaining dice, return current state
-  if (results.length === 0) {
-    results.push({ moves: [...movesSoFar], board: cloneBoard(board) });
+  // If no moves possible with remaining dice, record current state
+  if (!anyMoveFound) {
+    results.push({ moves: [...movesSoFar] });
+    context.maxMovesFound = Math.max(context.maxMovesFound, movesSoFar.length);
   }
-
-  return results;
 }
 
 /**
@@ -180,6 +290,61 @@ function getValidMoveSequences(board, player, dice) {
 }
 
 /**
+ * Get the maximum number of dice that can be used from a given board state.
+ * Lightweight alternative to getValidMoveSequences — only computes the count.
+ * Used by isMoveValid to avoid redundant full tree searches.
+ */
+function getMaxDiceUsable(board, player, remainingDice) {
+  let maxMoves = 0;
+
+  function search(board, remaining, depth) {
+    // Early termination: if depth + remaining can't beat max, return
+    if (depth + remaining.length <= maxMoves) return;
+
+    // If all dice used, update max
+    if (remaining.length === 0) {
+      maxMoves = Math.max(maxMoves, depth);
+      return;
+    }
+
+    let anyMove = false;
+    const triedDice = new Set();
+
+    for (let i = 0; i < remaining.length; i++) {
+      const dieValue = remaining[i];
+      if (triedDice.has(dieValue)) continue;
+      triedDice.add(dieValue);
+
+      const singleMoves = getSingleMoves(board, player, dieValue);
+      const seenTargets = new Set();
+
+      for (const move of singleMoves) {
+        const moveKey = `${move.from}-${move.to}`;
+        if (seenTargets.has(moveKey)) continue;
+        seenTargets.add(moveKey);
+
+        anyMove = true;
+        const undo = applyMoveInPlace(board, player, move);
+        const newRemaining = [...remaining];
+        newRemaining.splice(i, 1);
+        search(board, newRemaining, depth + 1);
+        undoMoveInPlace(board, player, move, undo);
+
+        // Early exit: if we've reached the theoretical max, stop searching
+        if (maxMoves === depth + remaining.length) return;
+      }
+    }
+
+    if (!anyMove) {
+      maxMoves = Math.max(maxMoves, depth);
+    }
+  }
+
+  search(board, remainingDice, 0);
+  return maxMoves;
+}
+
+/**
  * Get valid moves for a specific die value given current board state.
  * For UI: which pieces can move with this die?
  */
@@ -189,6 +354,7 @@ function getMovesForDie(board, player, dieValue) {
 
 /**
  * Validate if a specific move is legal within any valid move sequence.
+ * Optimized: uses getMaxDiceUsable instead of full tree enumeration.
  */
 function isMoveValid(board, player, dice, move, previousMoves) {
   const { expandDice } = require('./dice');
@@ -213,19 +379,17 @@ function isMoveValid(board, player, dice, move, previousMoves) {
   if (!isValidSingle) return false;
 
   // Check that this move doesn't prevent using the maximum number of dice
-  const afterMove = applySingleMove(currentBoard, player, move);
-  const remainingAfter = [...expandedDice];
-  const usedIdx = remainingAfter.indexOf(move.dieValue);
-  if (usedIdx !== -1) remainingAfter.splice(usedIdx, 1);
+  // Use lightweight getMaxDiceUsable instead of full findAllMoveSequences
+  const remainingAfterMove = [...expandedDice];
+  const usedIdx = remainingAfterMove.indexOf(move.dieValue);
+  if (usedIdx !== -1) remainingAfterMove.splice(usedIdx, 1);
 
-  // Check if remaining dice can be used
-  const futureSequences = findAllMoveSequences(afterMove, player, remainingAfter, []);
-  const maxFutureMoves = Math.max(0, ...futureSequences.map((s) => s.moves.length));
+  // Get max dice usable after this move
+  const afterBoard = applySingleMove(currentBoard, player, move);
+  const maxFutureMoves = getMaxDiceUsable(afterBoard, player, remainingAfterMove);
 
-  // Also check max possible without this specific move
-  const allRemaining = [...expandedDice];
-  const allSequences = findAllMoveSequences(currentBoard, player, allRemaining, []);
-  const maxTotal = Math.max(0, ...allSequences.map((s) => s.moves.length));
+  // Get max dice usable overall (from current state)
+  const maxTotal = getMaxDiceUsable(currentBoard, player, [...expandedDice]);
 
   // This move is valid if using it + future = max possible total
   return (1 + maxFutureMoves) >= maxTotal;
@@ -236,8 +400,11 @@ module.exports = {
   OFF,
   getSingleMoves,
   applySingleMove,
+  applyMoveInPlace,
+  undoMoveInPlace,
   findAllMoveSequences,
   getValidMoveSequences,
+  getMaxDiceUsable,
   getMovesForDie,
   isMoveValid,
 };

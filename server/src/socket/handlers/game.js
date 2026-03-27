@@ -226,7 +226,7 @@ function gameHandler(io, socket) {
   });
 
   // Chat
-  socket.on('game:chat', async (data) => {
+  socket.on('game:chat', (data) => {
     if (!socket.rateLimitCheck('game:chat')) return;
 
     const gameId = playerGames.get(userId);
@@ -235,18 +235,18 @@ function gameHandler(io, socket) {
     const message = typeof data.message === 'string' ? data.message.trim().slice(0, 500) : '';
     if (!message) return;
 
-    try {
-      await gameService.saveChatMessage(gameId, userId, message);
-      const roomName = `game:${gameId}`;
-      io.to(roomName).emit('game:chatMessage', {
-        userId,
-        username: socket.user.username,
-        message,
-        timestamp: new Date(),
-      });
-    } catch (err) {
-      logger.error('Chat', 'Message save failed', err);
-    }
+    const roomName = `game:${gameId}`;
+    // Emit immediately — don't wait for DB
+    io.to(roomName).emit('game:chatMessage', {
+      userId,
+      username: socket.user.username,
+      message,
+      timestamp: new Date(),
+    });
+
+    // Persist in background
+    gameService.saveChatMessage(gameId, userId, message)
+      .catch((err) => logger.error('Chat', 'Message save failed', err));
   });
 
   // Reconnect to active game
@@ -399,60 +399,56 @@ function clearTurnTimer(gameId) {
 }
 
 /**
- * Handle game end: update DB, calculate ELO, notify players.
+ * Handle game end: notify players immediately, then persist to DB in background.
+ * ELO calculation is a pure function so it runs synchronously before emit.
  */
 async function handleGameEnd(io, gameId, game, result) {
   const roomName = `game:${gameId}`;
 
+  // --- Phase 1: Compute ELO synchronously and emit immediately ---
+  let eloChanges = null;
+  let winnerId = null;
+  let loserId = null;
+
   try {
-    // Get player ratings
+    // Get player ratings from in-memory game data or DB
     const whiteProfile = await userService.getProfile(game.whitePlayerId);
     const blackProfile = await userService.getProfile(game.blackPlayerId);
 
-    // Determine winner/loser
-    const winnerId = result.winner === 'W' ? game.whitePlayerId : game.blackPlayerId;
-    const loserId = result.winner === 'W' ? game.blackPlayerId : game.whitePlayerId;
+    winnerId = result.winner === 'W' ? game.whitePlayerId : game.blackPlayerId;
+    loserId = result.winner === 'W' ? game.blackPlayerId : game.whitePlayerId;
     const winnerRating = result.winner === 'W' ? whiteProfile.elo_rating : blackProfile.elo_rating;
     const loserRating = result.winner === 'W' ? blackProfile.elo_rating : whiteProfile.elo_rating;
 
-    // Calculate ELO changes
+    // Calculate ELO changes (pure function — instant)
     const eloChange = calculateEloChange(winnerRating, loserRating, result.resultType);
+    eloChanges = {
+      white: result.winner === 'W' ? eloChange.winnerChange : eloChange.loserChange,
+      black: result.winner === 'B' ? eloChange.winnerChange : eloChange.loserChange,
+    };
 
-    // Update DB
-    await gameService.finishGameRecord(
-      gameId, winnerId, result.resultType,
-      serializeBoard(game.board),
-      {
-        white: result.winner === 'W' ? eloChange.winnerChange : eloChange.loserChange,
-        black: result.winner === 'B' ? eloChange.winnerChange : eloChange.loserChange,
-      },
-      game.moveNumber,
-    );
-
-    // Save all move history
-    for (const move of game.moveHistory) {
-      const moveUserId = move.player === 'W' ? game.whitePlayerId : game.blackPlayerId;
-      await gameService.saveGameMove(gameId, moveUserId, move.moveNumber, move.dice, move.moves, move.boardAfter);
-    }
-
-    // Update user stats and ELO
-    await userService.updateGameStats(winnerId, true, result.resultType);
-    await userService.updateGameStats(loserId, false, result.resultType);
-    await userService.updateEloRating(winnerId, eloChange.winnerNewRating);
-    await userService.updateEloRating(loserId, eloChange.loserNewRating);
-
-    // Notify players
+    // EMIT IMMEDIATELY — don't wait for DB writes
     io.to(roomName).emit('game:finished', {
       winner: result.winner,
       resultType: result.resultType,
-      eloChanges: {
-        white: result.winner === 'W' ? eloChange.winnerChange : eloChange.loserChange,
-        black: result.winner === 'B' ? eloChange.winnerChange : eloChange.loserChange,
-      },
+      eloChanges,
       snapshot: getGameSnapshot(game),
     });
+
+    // --- Phase 2: DB writes in background (fire-and-forget with logging) ---
+    const boardState = serializeBoard(game.board);
+    const moveHistory = [...game.moveHistory];
+    const moveNumber = game.moveNumber;
+    const whitePlayerId = game.whitePlayerId;
+    const blackPlayerId = game.blackPlayerId;
+
+    // Don't await — let it run in background
+    _persistGameEnd(gameId, winnerId, loserId, result.resultType, boardState, eloChanges, eloChange, moveHistory, moveNumber, whitePlayerId, blackPlayerId)
+      .catch((err) => logger.error('GameEnd', 'Background DB persist failed', err));
+
   } catch (err) {
-    logger.error('GameEnd', 'Error saving game result', err);
+    logger.error('GameEnd', 'Error in game end handler', err);
+    // Still emit even if ELO calc failed
     io.to(roomName).emit('game:finished', {
       winner: result.winner,
       resultType: result.resultType,
@@ -460,15 +456,40 @@ async function handleGameEnd(io, gameId, game, result) {
     });
   }
 
-  // Cleanup
+  // Cleanup memory immediately (don't wait for DB)
   playerGames.delete(game.whitePlayerId);
   playerGames.delete(game.blackPlayerId);
   activeGames.delete(gameId);
 
-  // Clean up Redis state
+  // Clean up Redis state (fire-and-forget)
   stateStore.deleteGame(gameId);
   stateStore.deletePlayerGame(game.whitePlayerId);
   stateStore.deletePlayerGame(game.blackPlayerId);
+}
+
+/**
+ * Persist game results to DB in background. Failures are logged but don't
+ * block the socket response to players.
+ */
+async function _persistGameEnd(gameId, winnerId, loserId, resultType, boardState, eloChanges, eloChange, moveHistory, moveNumber, whitePlayerId, blackPlayerId) {
+  // Update game record
+  await gameService.finishGameRecord(
+    gameId, winnerId, resultType,
+    boardState, eloChanges, moveNumber,
+  );
+
+  // Save move history as batch
+  if (moveHistory.length > 0) {
+    await gameService.saveGameMovesBatch(gameId, moveHistory, whitePlayerId, blackPlayerId);
+  }
+
+  // Update user stats and ELO (parallel — independent operations)
+  await Promise.all([
+    userService.updateGameStats(winnerId, true, resultType),
+    userService.updateGameStats(loserId, false, resultType),
+    userService.updateEloRating(winnerId, eloChange.winnerNewRating),
+    userService.updateEloRating(loserId, eloChange.loserNewRating),
+  ]);
 }
 
 module.exports = { gameHandler, validateMoveData };
